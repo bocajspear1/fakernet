@@ -1,0 +1,27 @@
+options {
+        directory "/var/bind";
+
+
+        // Configure the IPs to listen on here.
+        listen-on { any; };
+        listen-on-v6 { none; };
+
+        allow-transfer {
+                none;
+        };
+
+        // If you have problems and are behind a firewall:
+        //query-source address * port 53;
+
+        pid-file "/var/run/named/named.pid";
+
+        allow-recursion { any; };
+        recursion yes;
+
+        forwarders {
+                8.8.8.8;
+                8.8.4.4;
+        };
+
+
+};

@@ -1,0 +1,7 @@
+venv/*
+.vscode/*
+testing/*
+fakernet.db
+work/*
+!work/.gitkeep
+**/__pycache__/*
