@@ -1,6 +1,12 @@
 from lib.base_module import BaseModule
 import lib.validate as validate
 
+PULL_SERVER = "https://images.linuxcontainers.org"
+PULL_IMAGES = {
+    "ubuntu_1804": "ubuntu/18.04",
+    "ubuntu_1604": "ubuntu/16.04",
+}
+
 class LXDManager(BaseModule):
 
     def __init__(self, mm):
@@ -25,7 +31,7 @@ class LXDManager(BaseModule):
     def run(self, func, **kwargs) :
         dbc = self.mm.db.cursor()
         if func == "add_container":
-            perror, _ = self.validate_params(self.__FUNCS__['get_ip_mask'], kwargs)
+            perror, _ = self.validate_params(self.__FUNCS__['add_container'], kwargs)
             if perror is not None:
                 return perror, None
 
@@ -33,7 +39,43 @@ class LXDManager(BaseModule):
         ip_addr = kwargs['ip_addr']
         template = kwargs['template']
 
-        
+        # Allocate our IP address
+        # error, _ = self.mm['ipreserve'].run("add_ip", ip_addr=ip_addr, description="LXD - {}".format(fqdn))
+        # if error is not None:
+        #     return error, None
+
+        # error, _ = self.mm['dns'].run("easy_add_host", fqdn=fqdn, ip_addr=ip_addr)
+        # if error is not None:
+        #     return error, None 
+
+        fqdn_split = fqdn.split(".")
+
+        if template not in PULL_IMAGES:
+            return "Unsupported template", None
+
+        error, switch = self.mm['netreserve'].run("get_ip_switch", ip_addr=ip_addr)
+        if error:
+            return error, None
+
+
+        container = self.mm.lxd.containers.create({
+            'name': fqdn_split[0], 
+            'source': {'type': 'image', 'alias': template},
+            'config': {
+
+            },
+            "devices": {
+                "eth0": {
+                    "ipv4.address": ip_addr,
+                    "type": "nic",
+                    "nictype": "bridged",
+                    "parent": switch
+                }
+            },
+        }, wait=True)
+
+        return None, True
+
 
     def check(self):
         dbc = self.mm.db.cursor()
@@ -44,6 +86,15 @@ class LXDManager(BaseModule):
             self.mm.db.commit()
 
     def build(self):
-        pass
+        for image_name in PULL_IMAGES:
+            print("Pulling in {} - {}".format(PULL_SERVER, PULL_IMAGES[image_name]))
+            image = self.mm.lxd.images.create_from_simplestreams(PULL_SERVER, PULL_IMAGES[image_name])
+
+            found = False
+            for alias in image.aliases:
+                if alias['name'] == image_name:
+                    found = True
+            if not found:
+                image.add_alias(name=image_name, description=image_name)
 
 __MODULE__ = LXDManager

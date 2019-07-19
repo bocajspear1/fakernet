@@ -55,7 +55,6 @@ class DNSServer(BaseModule):
         },
         "add_host": {
             "_desc": "Add a host to a DNS server",
-            "id": "INTEGER",
             "fqdn": "TEXT",
             "ip_addr": "IP_ADDR"
         },
@@ -125,10 +124,21 @@ class DNSServer(BaseModule):
 
         return None, True
 
-    def _add_host(self, dns_server_id, fqdn, ip_addr):
+    def _add_host(self, fqdn, ip_addr):
+        dbc = self.mm.db.cursor()
 
         if not validate.is_ip(ip_addr):
             return "Invalid IP address", None
+
+        # Get our server id by looking through the domains
+        fqdn_split = fqdn.split(".")
+        parent_domain = ".".join(fqdn_split[1:])
+        dbc.execute("SELECT * FROM dns_server WHERE server_domain=?",(parent_domain,))
+        result = dbc.fetchone()
+        if result is None:
+            return "Could not find parent domain {}".format(parent_domain), None 
+        
+        dns_server_id = result[0]
 
         dns_config_path = "{}/{}".format(DNS_BASE_DIR, dns_server_id)
         if not os.path.exists(dns_config_path):
@@ -152,8 +162,7 @@ class DNSServer(BaseModule):
         rev_split = rev_name.split(".")
         last_num = rev_split[0]
         rev_name = ".".join(rev_split[1:])
-        print(rev_name, last_num)
-        
+
         dns_config_path = "{}/{}".format(DNS_BASE_DIR, 1)
         zone_path =  "{}/zones/{}.{}".format(dns_config_path, rev_name, "rev")
         if not os.path.exists(zone_path):
@@ -340,7 +349,7 @@ class DNSServer(BaseModule):
             if perror is not None:
                 return perror, None
 
-            return self._add_host(kwargs['id'], kwargs['fqdn'], kwargs['ip_addr'])
+            return self._add_host(kwargs['fqdn'], kwargs['ip_addr'])
         else:
             return "Invalid function '{}'".format(func), None
 
