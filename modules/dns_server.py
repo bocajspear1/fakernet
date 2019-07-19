@@ -58,6 +58,10 @@ class DNSServer(BaseModule):
             "id": "INTEGER",
             "fqdn": "TEXT",
             "ip_addr": "IP_ADDR"
+        },
+        "get_server": {
+            "_desc": "Get info on a DNS server",
+            "id": "INTEGER"
         }
     } 
 
@@ -166,6 +170,23 @@ class DNSServer(BaseModule):
         dbc = self.mm.db.cursor()
         if func == "viewall":
             pass 
+        elif func == "get_server":
+            perror, _ = self.validate_params(self.__FUNCS__['get_server'], kwargs)
+            if perror is not None:
+                return perror, None
+            
+            dns_server_id = kwargs['id']
+            dbc.execute("SELECT * FROM dns_server WHERE server_id=?", (dns_server_id,))
+            result = dbc.fetchone()
+            if not result:
+                return "DNS server does not exist", None
+            else:
+                return None, {
+                    "server_ip": result[1],
+                    "description": result[2],
+                    "domain": result[3],
+                }
+
         elif func == "delete_server":
             perror, _ = self.validate_params(self.__FUNCS__['delete_server'], kwargs)
             if perror is not None:
@@ -214,9 +235,15 @@ class DNSServer(BaseModule):
             if domain != ".":
                 pass
 
+            # Check this domain is not already taken
             dbc.execute("SELECT server_id FROM dns_server WHERE server_domain=?", (domain,))
             if dbc.fetchone():
                 return "Domain already exists", None
+
+            # Allocate our IP address
+            error, _ = self.mm['ipreserve'].run("add_ip", ip_addr=server_ip, description=description)
+            if error is not None:
+                return error, None
 
             dbc.execute('INSERT INTO dns_server (server_ip, server_desc, server_domain) VALUES (?, ?, ?)', (server_ip, description, domain))
             self.mm.db.commit()
@@ -256,6 +283,14 @@ class DNSServer(BaseModule):
 
             if err is not None:
                 return err, None
+
+            # If we are the first DNS server, then set us as the default DNS server for LXD containers
+            if dns_server_id == 1:
+
+                network = self.mm.lxd.networks.get(switch)
+                network.config['raw.dnsmasq'] = 'dhcp-option=option:dns-server,{}'.format(server_ip) 
+                network.save()
+
 
             return None, True
             

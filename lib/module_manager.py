@@ -2,6 +2,7 @@ import sqlite3
 import importlib
 import os 
 import docker
+from pylxd import Client
 
 class ModuleManager():
 
@@ -9,6 +10,7 @@ class ModuleManager():
         self.modules = {}
         self.db = sqlite3.connect('fakernet.db')
         self.docker = docker.from_env()
+        self.lxd = Client()
 
     def load(self):
         module_list = os.listdir("./modules")

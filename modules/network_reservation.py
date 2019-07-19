@@ -77,11 +77,21 @@ class NetReservation(BaseModule):
                 try:
                     subprocess.check_output(["/usr/bin/sudo", "/usr/bin/ovs-vsctl", "br-exists", switch])
                 except:
-                    print("Adding switch '{}'".format(switch))
-                    try:
-                        subprocess.check_output(["/usr/bin/sudo", "/usr/bin/ovs-vsctl", "add-br", switch])
-                    except:
-                        return "Could not create new bridge", None
+                    
+                    lxd_net_config = {
+                        'ipv4.address': str(list(new_network_obj.hosts())[0]) + "/" + str(new_network_obj.prefixlen),
+                        'ipv4.nat': 'false',
+                        'bridge.driver': 'openvswitch'
+                    }
+
+                    # If we have a base dns server, set the networks DNS server
+                    error, server_data = self.mm['dns'].run("get_server", id=1)
+                    if error is None:
+                        lxd_net_config['raw.dnsmasq'] = 'dhcp-option=option:dns-server,{}'.format(server_data['server_ip'])
+
+                    self.mm.lxd.networks.create(switch, config=lxd_net_config)
+
+                    
 
                 return None, True
             else:
