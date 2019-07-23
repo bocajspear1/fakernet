@@ -53,8 +53,22 @@ class DNSServer(BaseModule):
             "name": "TEXT",
             "value": "TEXT"
         },
+        "remove_record": {
+            "_desc": "Remove a record from a DNS server",
+            "id": "INTEGER",
+            "zone": "TEXT",
+            "direction": ['fwd', 'rev'],
+            "type": "TEXT",
+            "name": "TEXT",
+            "value": "TEXT"
+        },
         "add_host": {
             "_desc": "Add a host to a DNS server",
+            "fqdn": "TEXT",
+            "ip_addr": "IP_ADDR"
+        },
+        "remove_host": {
+            "_desc": "Remove a host to a DNS server",
             "fqdn": "TEXT",
             "ip_addr": "IP_ADDR"
         },
@@ -65,6 +79,26 @@ class DNSServer(BaseModule):
     } 
 
     __SHORTNAME__  = "dns"
+
+    def _get_dns_server(self, fqdn):
+        dbc = self.mm.db.cursor()
+        # Get our server id by looking through the domains
+        fqdn_split = fqdn.split(".")
+        parent_domain = ".".join(fqdn_split[1:])
+        dbc.execute("SELECT * FROM dns_server WHERE server_domain=?",(parent_domain,))
+        result = dbc.fetchone()
+        if result is None:
+            return None
+        else:
+            return result[0]
+
+    def _split_fqdn(self, fqdn):
+        fqdn_split = fqdn.split(".")
+        hostname = fqdn_split[0]
+        if fqdn_split[len(fqdn_split)-1] == "":
+            del fqdn_split[len(fqdn_split)-1]
+        zone = ".".join(fqdn_split[1:])
+        return hostname, zone
 
     def _add_zone(self, dns_server_id, zone, direction):
         if direction != "fwd" and direction != "rev":
@@ -125,43 +159,33 @@ class DNSServer(BaseModule):
         return None, True
 
     def _add_host(self, fqdn, ip_addr):
-        dbc = self.mm.db.cursor()
 
         if not validate.is_ip(ip_addr):
             return "Invalid IP address", None
 
         # Get our server id by looking through the domains
-        fqdn_split = fqdn.split(".")
-        parent_domain = ".".join(fqdn_split[1:])
-        dbc.execute("SELECT * FROM dns_server WHERE server_domain=?",(parent_domain,))
-        result = dbc.fetchone()
-        if result is None:
-            return "Could not find parent domain {}".format(parent_domain), None 
-        
-        dns_server_id = result[0]
+        dns_server_id = self._get_dns_server(fqdn)
+        if dns_server_id is None:
+            return "Could not find parent domain for {}".format(fqdn), None 
 
         dns_config_path = "{}/{}".format(DNS_BASE_DIR, dns_server_id)
         if not os.path.exists(dns_config_path):
             return "DNS server {} does not exist".format(dns_server_id), None
 
-        fqdn_split = fqdn.split(".")
-        hostname = fqdn_split[0]
-        if fqdn_split[len(fqdn_split)-1] == "":
-            del fqdn_split[len(fqdn_split)-1]
-        zone = ".".join(fqdn_split[1:])
+        hostname, zone = self._split_fqdn(fqdn)
 
         zone_path =  "{}/zones/{}.{}".format(dns_config_path, zone, "fwd")
         if not os.path.exists(zone_path):
             return "Zone does not exist", None
 
-        self.run("add_record", id=dns_server_id, zone=zone, direction="fwd", type="A", name=hostname+"."+zone, value=ip_addr)
-
+        error, _ = self.run("add_record", id=dns_server_id, zone=zone, direction="fwd", type="A", name=hostname+"."+zone, value=ip_addr)
+        if error is not None:
+            return error, None
+            
         # Check for reverse
         rev_name = str(dns.reversename.from_address(str(ip_addr)))[:-1]
         
-        rev_split = rev_name.split(".")
-        last_num = rev_split[0]
-        rev_name = ".".join(rev_split[1:])
+        last_num, rev_name = self._split_fqdn(rev_name)
 
         dns_config_path = "{}/{}".format(DNS_BASE_DIR, 1)
         zone_path =  "{}/zones/{}.{}".format(dns_config_path, rev_name, "rev")
@@ -170,8 +194,49 @@ class DNSServer(BaseModule):
             if error is not None:
                 return error, None
 
-        self.run("add_record", id=1, zone=rev_name, direction="rev", type="PTR", name=str(last_num), value=hostname+"."+zone+".")
+        error, _ = self.run("add_record", id=1, zone=rev_name, direction="rev", type="PTR", name=str(last_num), value=hostname+"."+zone+".")
+        if error is not None:
+            return error, None
 
+        return None, True
+
+    def _remove_host(self, fqdn, ip_addr):
+        
+        if not validate.is_ip(ip_addr):
+            return "Invalid IP address", None
+
+        # Get our server id by looking through the domains
+        dns_server_id = self._get_dns_server(fqdn)
+        if dns_server_id is None:
+            return "Could not find parent domain for {}".format(fqdn), None 
+
+        dns_config_path = "{}/{}".format(DNS_BASE_DIR, dns_server_id)
+        if not os.path.exists(dns_config_path):
+            return "DNS server {} does not exist".format(dns_server_id), None
+
+        hostname, zone = self._split_fqdn(fqdn)
+
+        zone_path =  "{}/zones/{}.{}".format(dns_config_path, zone, "fwd")
+        if not os.path.exists(zone_path):
+            return "Zone does not exist", None
+
+        error, _ = self.run("remove_record", id=dns_server_id, zone=zone, direction="fwd", type="A", name=hostname+"."+zone, value=ip_addr)
+        if error is not None:
+            return error, None
+
+        # Check for reverse
+        rev_name_full = str(dns.reversename.from_address(str(ip_addr)))[:-1]
+        
+        last_num, rev_name = self._split_fqdn(rev_name_full)
+
+        dns_config_path = "{}/{}".format(DNS_BASE_DIR, 1)
+        zone_path =  "{}/zones/{}.{}".format(dns_config_path, rev_name, "rev")
+        if not os.path.exists(zone_path):
+            return "Reverse zone does not exist", None
+
+        error, _ = self.run("remove_record", id=1, zone=rev_name, direction="rev", type="PTR", name=rev_name_full + ".", value=hostname+"."+zone+".")
+        if error is not None:
+            return error, None
 
         return None, True
 
@@ -207,7 +272,7 @@ class DNSServer(BaseModule):
             result = dbc.fetchone()
             if not result:
                 return "DNS server does not exist", None
-            print(result)
+            
             server_ip = result[0]
 
             err, switch = self.mm['netreserve'].run("get_ip_switch", ip_addr=server_ip)
@@ -262,7 +327,7 @@ class DNSServer(BaseModule):
             dns_config_path = "{}/{}".format(DNS_BASE_DIR, dns_server_id)
 
             if os.path.exists(dns_config_path):
-                print("Removing old directory...")
+                self.print("Removing old directory...")
                 shutil.rmtree(dns_config_path)
 
             os.mkdir(dns_config_path)
@@ -328,7 +393,6 @@ class DNSServer(BaseModule):
 
             zone = easyzone.zone_from_file(zone, zone_path)
 
-            print("name: ", name)
             if name[len(name)-1] != "." and record_type == "A":
                 name = name + "."
 
@@ -344,12 +408,56 @@ class DNSServer(BaseModule):
                     return "'rndc reload' failed", None
             except docker.errors.NotFound:
                 return "DNS server not found", None
+
+            return None, True
+            
+        elif func == "remove_record":
+            perror, _ = self.validate_params(self.__FUNCS__['remove_record'], kwargs)
+            if perror is not None:
+                return perror, None
+
+            dns_server_id = kwargs['id']
+            zone = kwargs['zone']
+            direction = kwargs['direction']
+            record_type = kwargs['type']
+            name = kwargs['name']
+            value = kwargs['value']
+
+            dns_config_path = "{}/{}".format(DNS_BASE_DIR, dns_server_id)
+            zone_path =  "{}/zones/{}.{}".format(dns_config_path, zone, direction)
+            zone = easyzone.zone_from_file(zone, zone_path)
+
+            if name[len(name)-1] != "." and record_type == "A":
+                name = name + "."
+
+            if name not in zone.get_names():
+                return "{} not in zone".format(name), None
+            records = zone.names[name].records(record_type, create=True)
+            records.delete(value)
+            zone.save(autoserial=True)
+
+            try:
+                container = self.mm.docker.containers.get("dns-server-{}".format(dns_server_id))
+                code, output = container.exec_run("rndc reload")
+                if code != 0:
+                    return "'rndc reload' failed", None
+            except docker.errors.NotFound:
+                return "DNS server not found", None
+
+            return None, True
+
         elif func == "add_host":
             perror, _ = self.validate_params(self.__FUNCS__['add_host'], kwargs)
             if perror is not None:
                 return perror, None
 
             return self._add_host(kwargs['fqdn'], kwargs['ip_addr'])
+        elif func == "remove_host":
+            perror, _ = self.validate_params(self.__FUNCS__['remove_host'], kwargs)
+            if perror is not None:
+                return perror, None
+
+            return self._remove_host(kwargs['fqdn'], kwargs['ip_addr'])
         else:
             return "Invalid function '{}'".format(func), None
 

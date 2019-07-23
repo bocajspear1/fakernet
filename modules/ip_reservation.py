@@ -19,6 +19,10 @@ class IPReservation(BaseModule):
             "ip_addr": "IP_ADDR",
             "description": "TEXT"
         },
+        "remove_ip": {
+            "_desc": "Remove an IP reservation",
+            "ip_addr": "IP_ADDR",
+        }
     } 
 
     __SHORTNAME__  = "ipreserve"
@@ -57,8 +61,21 @@ class IPReservation(BaseModule):
                 return "IP not in any allocated networks", None
         elif func == "delete_ip_by_id":
             pass
-        elif func == "delete_ip":
-            pass
+        elif func == "remove_ip":
+            perror, _ = self.validate_params(self.__FUNCS__['remove_ip'], kwargs)
+            if perror is not None:
+                return perror, None
+
+            ip_addr = kwargs['ip_addr']
+
+            dbc.execute("SELECT ip FROM ip_list WHERE ip=?", (ip_addr,))
+            result = dbc.fetchone()
+            if not result:
+                return "IP {} is not allocated".format(ip_addr), None
+
+            dbc.execute("DELETE FROM ip_list WHERE ip=?", (ip_addr,))
+            self.mm.db.commit()
+            return None, True
         else:
             return "Invalid function", None
 
