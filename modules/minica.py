@@ -3,14 +3,20 @@ import shutil
 from string import Template
 
 import docker
+from OpenSSL import crypto
+import requests
 
 import lib.validate as validate
-
 from lib.base_module import BaseModule
 
 CA_IMAGE_NAME = "minica"
 CA_BASE_DIR = "{}/work/minica".format(os.getcwd())
 
+DEFAULT_COUNTRY = "US"
+DEFAULT_STATE = "NP"
+DEFAULT_CITY = "Someplace"
+DEFAULT_ORG = "FakerNet Org"
+DEFAULT_DIV = "Servers"
 
 class MiniCAServer(BaseModule):
 
@@ -33,6 +39,11 @@ class MiniCAServer(BaseModule):
         "get_server": {
             "_desc": "Get info on a CA server",
             "id": "INTEGER"
+        },
+        "generate_host_cert": {
+            "_desc": "Generate a key and signed certificate",
+            "id": "INTEGER",
+            "fqdn": "TEXT"
         }
     } 
 
@@ -87,7 +98,6 @@ class MiniCAServer(BaseModule):
                 return err, None
 
             return None, True
-
         elif func == "add_ca":
             perror, _ = self.validate_params(self.__FUNCS__['add_ca'], kwargs)
             if perror is not None:
@@ -128,10 +138,15 @@ class MiniCAServer(BaseModule):
             }
 
             environment = {
-                "DOMAIN": fqdn
+                "DOMAIN": fqdn,
+                "IP": server_ip
             }
 
-            self.mm.docker.containers.run(CA_IMAGE_NAME, volumes=vols, detach=True, name=container_name, network_mode="none", )
+            error, server_data = self.mm['dns'].run("get_server", id=1)
+            if error is not None:
+                return "No base DNS server has been created", None    
+
+            self.mm.docker.containers.run(CA_IMAGE_NAME, volumes=vols, environment=environment, detach=True, name=container_name, network_mode="none", dns=[server_data['server_ip']])
 
             # Configure networking
             err, switch = self.mm['netreserve'].run("get_ip_switch", ip_addr=server_ip)
@@ -152,6 +167,69 @@ class MiniCAServer(BaseModule):
                 return err, None
 
             return None, True
+        elif func == "generate_host_cert":
+            perror, _ = self.validate_params(self.__FUNCS__['generate_host_cert'], kwargs)
+            if perror is not None:
+                return perror, None
+
+            minica_server_id = kwargs['id']
+            fqdn = kwargs['fqdn']
+
+            dbc.execute("SELECT server_ip FROM minica_server WHERE server_id=?", (minica_server_id,))
+            result = dbc.fetchone()
+            if result is None:
+                return "CA server not found", None
+
+            # TODO: Filter fqdn
+            if ";" in fqdn or " " in fqdn or "{" in fqdn:
+                return "Invalid FQDN", None
+
+            csr_path = "/tmp/{}.csr".format(fqdn)
+
+            new_key = crypto.PKey()
+            new_key.generate_key(crypto.TYPE_RSA, 2048)
+
+            new_key_pem = crypto.dump_privatekey(crypto.FILETYPE_PEM, new_key)
+
+            csr_req = crypto.X509Req()
+            csr_req.get_subject().CN = fqdn
+            csr_req.get_subject().C = DEFAULT_COUNTRY
+            csr_req.get_subject().ST = DEFAULT_STATE
+            csr_req.get_subject().L = DEFAULT_CITY
+            csr_req.get_subject().O = DEFAULT_ORG
+            csr_req.get_subject().OU = DEFAULT_DIV
+            csr_req.set_pubkey(new_key)
+            csr_req.sign(new_key, "sha256")
+
+            csr_out = open(csr_path, "wb")
+            csr_out.write(crypto.dump_certificate_request(crypto.FILETYPE_PEM, csr_req))
+            csr_out.close()
+
+            ca_data_path = "{}/{}".format(CA_BASE_DIR, minica_server_id)
+
+            # Get the server key
+            ca_key = open("{}/ca.pass".format(ca_data_path), "r").read().strip()
+
+            files = {
+                "csrfile": open(csr_path,'rb')
+            }
+
+            post_data = {
+                "password": ca_key
+            }
+            print("{}/ca.crt".format(ca_data_path))
+            resp = requests.post("https://{}".format(result[0]), files=files, data=post_data, verify="{}/ca.crt".format(ca_data_path))
+            if resp.status_code != 200:
+                return "Signing failed", None 
+            
+            signed_cert = resp.text
+
+            return None, (new_key_pem, signed_cert)
+
+
+
+        else:
+            return "Invalid function"
 
     
     def check(self):

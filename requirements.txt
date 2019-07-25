@@ -1,2 +1,6 @@
 prompt_toolkit
 dnspython
+requests
+pyopenssl
+docker
+pylxd
