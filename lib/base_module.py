@@ -20,8 +20,8 @@ class BaseModule():
         
         return None, True
 
-    def ovs_set_ip(self, container, bridge, ip_addr, interface):
-        subprocess.check_output(["/usr/bin/sudo", "/usr/bin/ovs-docker", "add-port", bridge, interface, container, "--ipaddress={}".format(ip_addr)])
+    def ovs_set_ip(self, container, bridge, interface, ip_addr, gateway):
+        subprocess.check_output(["/usr/bin/sudo", "/usr/bin/ovs-docker", "add-port", bridge, interface, container, "--ipaddress={}".format(ip_addr), "--gateway={}".format(gateway)])
         return None, True
 
     def ovs_remove_ports(self, container, bridge):

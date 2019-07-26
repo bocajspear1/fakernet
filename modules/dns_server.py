@@ -181,7 +181,7 @@ class DNSServer(BaseModule):
         error, _ = self.run("add_record", id=dns_server_id, zone=zone, direction="fwd", type="A", name=hostname+"."+zone, value=ip_addr)
         if error is not None:
             return error, None
-            
+
         # Check for reverse
         rev_name = str(dns.reversename.from_address(str(ip_addr)))[:-1]
         
@@ -349,11 +349,14 @@ class DNSServer(BaseModule):
             if err:
                 return err, None
 
-            err, mask = self.mm['netreserve'].run("get_ip_mask", ip_addr=server_ip)
+            err, network = self.mm['netreserve'].run("get_ip_network", ip_addr=server_ip)
             if err:
                 return err, None
+
+            mask = network.prefixlen
+            gateway = str(list(network.hosts())[0])
             
-            err, result = self.ovs_set_ip(container_name, switch, "{}/{}".format(server_ip, mask), "eth0")
+            err, result = self.ovs_set_ip(container_name, switch, "eth0", "{}/{}".format(server_ip, mask), gateway)
 
             if err is not None:
                 return err, None

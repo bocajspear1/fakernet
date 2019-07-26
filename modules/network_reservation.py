@@ -1,6 +1,8 @@
 import ipaddress
 import subprocess 
 
+import pylxd.exceptions
+
 from lib.base_module import BaseModule
 import lib.validate as validate
 
@@ -23,7 +25,7 @@ class NetReservation(BaseModule):
             "description": "TEXT",
             "switch": "TEXT"
         },
-        "delete": {
+        "delete_network": {
             "_desc": "Delete a network allocation",
             "id": "INTEGER"
         },
@@ -35,7 +37,7 @@ class NetReservation(BaseModule):
             "_desc": "Get the switch for a network",
             "ip_addr": "IP"
         },
-        "get_ip_mask": {
+        "get_ip_network": {
             "_desc": "Get the mask for a network",
             "ip_addr": "IP"
         }
@@ -49,6 +51,30 @@ class NetReservation(BaseModule):
             dbc.execute("SELECT * FROM networks;") 
             results = dbc.fetchall()
             return None, results
+        elif func == "delete_network":
+            perror, _ = self.validate_params(self.__FUNCS__['get_ip_network'], kwargs)
+            if perror is not None:
+                return perror, None
+            
+            net_id = kwargs['id']
+
+            dbc.execute("SELECT * FROM networks WHERE net_id=?", (net_id,))
+            result = dbc.fetchone()
+            if result is None:
+                return "Network does not exist", None
+            
+            dbc.execute("DELETE FROM networks WHERE net_id=?", (net_id,))
+            self.mm.db.commit()
+            
+            switch_name = result[3]
+            try:
+                lxd_network = self.mm.lxd.networks.get(switch_name)
+                lxd_network.delete()
+            except pylxd.exceptions.NotFound: 
+                return "Switch not found for LXD", None
+
+            return None, True
+
         elif func == "add_network":
             perror, _ = self.validate_params(self.__FUNCS__['add_network'], kwargs)
             if perror is not None:
@@ -114,8 +140,8 @@ class NetReservation(BaseModule):
             print(results)
             
             return "Could not find network", None
-        elif func == "get_ip_mask":
-            perror, _ = self.validate_params(self.__FUNCS__['get_ip_mask'], kwargs)
+        elif func == "get_ip_network":
+            perror, _ = self.validate_params(self.__FUNCS__['get_ip_network'], kwargs)
             if perror is not None:
                 return perror, None
 
@@ -126,7 +152,7 @@ class NetReservation(BaseModule):
             results = dbc.fetchall()
             for network in results:
                 if validate.is_ip_in_network(ip, network[1]):
-                    return None, ipaddress.ip_network(network[1]).prefixlen
+                    return None, ipaddress.ip_network(network[1])
             print(results)
             
             return None, True
