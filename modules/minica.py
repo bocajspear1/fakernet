@@ -44,10 +44,16 @@ class MiniCAServer(BaseModule):
             "_desc": "Generate a key and signed certificate",
             "id": "INTEGER",
             "fqdn": "TEXT"
+        },
+        "get_ca_cert": {
+            "_desc": "Get a server's CA cert",
+            "id": "INTEGER",
+            "type": "TEXT"
         }
     } 
 
     __SHORTNAME__  = "minica"
+    __DESC__ = "A small, web accessible CA for labs"
 
     def run(self, func, **kwargs) :
         dbc = self.mm.db.cursor()
@@ -170,6 +176,34 @@ class MiniCAServer(BaseModule):
                 return err, None
 
             return None, True
+        elif func == "get_ca_cert":
+            perror, _ = self.validate_params(self.__FUNCS__['get_ca_cert'], kwargs)
+            if perror is not None:
+                return perror, None
+            
+            minica_server_id = kwargs['id']
+            cert_type = kwargs['type']
+
+            dbc.execute("SELECT server_ip FROM minica_server WHERE server_id=?", (minica_server_id,))
+            result = dbc.fetchone()
+            if result is None:
+                return "CA server not found", None
+
+            ca_data_path = "{}/{}".format(CA_BASE_DIR, minica_server_id)
+
+            get_path = "https://{}/static/certs/fakernet-ca."
+            if cert_type == "windows":
+                get_path += "p7b"
+            else:
+                get_path += "crt"
+
+            resp = requests.get(get_path.format(result[0]), verify="{}/ca.crt".format(ca_data_path))
+            if resp.status_code != 200:
+                return "CA cert not found", None 
+            
+            ca_cert = resp.text
+            return None, str(ca_cert)
+
         elif func == "generate_host_cert":
             perror, _ = self.validate_params(self.__FUNCS__['generate_host_cert'], kwargs)
             if perror is not None:
@@ -220,14 +254,14 @@ class MiniCAServer(BaseModule):
             post_data = {
                 "password": ca_key
             }
-            print("{}/ca.crt".format(ca_data_path))
+            
             resp = requests.post("https://{}".format(result[0]), files=files, data=post_data, verify="{}/ca.crt".format(ca_data_path))
             if resp.status_code != 200:
                 return "Signing failed", None 
             
             signed_cert = resp.text
 
-            return None, (new_key_pem, signed_cert)
+            return None, (new_key_pem.decode(), signed_cert)
 
 
 

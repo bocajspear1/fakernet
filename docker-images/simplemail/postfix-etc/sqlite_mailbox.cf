@@ -1,0 +1,3 @@
+dbpath = /etc/postfix/vmail.sqlite
+query = SELECT email FROM users WHERE email = '%s'
+result_format = %d/%u/

@@ -26,6 +26,7 @@ class IPReservation(BaseModule):
     } 
 
     __SHORTNAME__  = "ipreserve"
+    __DESC__ = "Manages IP reservations"
 
     def run(self, func, **kwargs) :
         dbc = self.mm.db.cursor()

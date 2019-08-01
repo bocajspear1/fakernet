@@ -1,0 +1,2 @@
+dbpath = /etc/postfix/vmail.sqlite
+query = SELECT alias FROM aliases WHERE email = '%s'

@@ -44,6 +44,14 @@ class DNSServer(BaseModule):
             "zone": "TEXT",
             "direction": ['fwd', 'rev']
         },
+        "smart_add_record": {
+            "_desc": "Add a record to a DNS server, trying to determine server and zone",
+            "direction": ['fwd', 'rev'],
+            "type": "TEXT",
+            "fqdn": "TEXT",
+            "value": "TEXT",
+            "autocreate": "BOOLEAN"
+        },
         "add_record": {
             "_desc": "Add a record to a DNS server",
             "id": "INTEGER",
@@ -79,6 +87,7 @@ class DNSServer(BaseModule):
     } 
 
     __SHORTNAME__  = "dns"
+    __DESC__ = "Creates and manages BIND DNS servers"
 
     def _get_dns_server(self, fqdn):
         dbc = self.mm.db.cursor()
@@ -378,6 +387,47 @@ class DNSServer(BaseModule):
 
             return self._add_zone(kwargs['id'], kwargs['zone'], kwargs['direction'])
 
+        elif func == "smart_add_record":
+            perror, _ = self.validate_params(self.__FUNCS__['smart_add_record'], kwargs)
+            if perror is not None:
+                return perror, None
+
+            fqdn = kwargs['fqdn']
+            direction = kwargs['direction']
+            record_type = kwargs['type']
+            value = kwargs['value']
+            autocreate = kwargs['autocreate']
+
+            found = False
+            counter = 0
+
+            fqdn_split = fqdn.split(".")
+
+            while found == False and counter < len(fqdn_split):
+                search_domain = '.'.join(fqdn_split[counter:])
+                dns_server_id = self._get_dns_server(search_domain)
+                if dns_server_id is not None:
+                    found = True
+                counter += 1
+
+            if found == False:
+                return "Could not find a parent domain for {}".format(fqdn), None 
+
+            first, zone = self._split_fqdn(fqdn)
+
+            dns_config_path = "{}/{}".format(DNS_BASE_DIR, dns_server_id)
+            zone_path = "{}/zones/{}.{}".format(dns_config_path, zone, direction)
+
+            if not os.path.exists(zone_path):
+                if autocreate == True:
+                    self._add_zone(dns_server_id, zone, direction)
+                else:
+                    return "Zone for FQDN {} in server {} not found".format(fqdn, dns_server_id), None
+
+            name = '.'.join(fqdn_split[:-1])
+
+            return self.run('add_record', id=dns_server_id, zone=zone, direction=direction, type=record_type, name=name, value=value)
+
         elif func == "add_record":
             perror, _ = self.validate_params(self.__FUNCS__['add_record'], kwargs)
             if perror is not None:
@@ -394,10 +444,12 @@ class DNSServer(BaseModule):
             zone_path =  "{}/zones/{}.{}".format(dns_config_path, zone, direction)
             
 
-            zone = easyzone.zone_from_file(zone, zone_path)
+            
 
-            if name[len(name)-1] != "." and record_type == "A":
+            if not name.endswith(".") and record_type == "A" and name.endswith(zone):
                 name = name + "."
+
+            zone = easyzone.zone_from_file(zone, zone_path)
 
             zone.add_name(name)
             ns = zone.names[name].records(record_type, create=True)
@@ -436,7 +488,10 @@ class DNSServer(BaseModule):
             if name not in zone.get_names():
                 return "{} not in zone".format(name), None
             records = zone.names[name].records(record_type, create=True)
-            records.delete(value)
+            try:
+                records.delete(value)
+            except easyzone.RecordsError: 
+                return "Value '{}' not in records".format(value), None
             zone.save(autoserial=True)
 
             try:

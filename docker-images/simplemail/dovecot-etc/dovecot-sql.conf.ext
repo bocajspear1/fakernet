@@ -1,0 +1,7 @@
+driver = sqlite
+connect = /etc/postfix/vmail.sqlite
+default_pass_scheme = SSHA512
+password_query = SELECT password FROM users WHERE email = '%u'
+user_query = SELECT '/var/spool/mailvirtual/%d/%n' AS home, \
+100 AS uid, 100 AS gid, '*:storage=' || quota AS quota_rule \
+FROM users WHERE email = '%u'
