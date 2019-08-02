@@ -49,3 +49,4 @@ plugin {
 }
 
 postmaster_address = postmaster@DOMAIN.ZONE
+log_path = /var/log/dovecot.log

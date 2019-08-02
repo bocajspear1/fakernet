@@ -1,0 +1,7 @@
+CREATE TABLE users (email TEXT PRIMARY KEY, password TEXT, quota INTEGER DEFAULT 0);
+CREATE TABLE domains (id INTEGER PRIMARY KEY, domain TEXT UNIQUE);
+CREATE TABLE aliases (id INTEGER PRIMARY KEY, email TEXT UNIQUE, alias TEXT);
+INSERT INTO domains (domain) VALUES ('DOMAIN.ZONE');
+INSERT INTO users (email,password,quota) VALUES ('admin@DOMAIN.ZONE','HASHEDPASSWORD', 2000000);
+INSERT INTO aliases (email,alias) VALUES ('postmaster@DOMAIN.ZONE','admin@DOMAIN.ZONE');
+INSERT INTO aliases (email,alias) VALUES ('abuse@DOMAIN.ZONE','admin@DOMAIN.ZONE');
