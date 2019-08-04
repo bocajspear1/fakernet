@@ -5,13 +5,15 @@ myhostname = HOSTNAME.DOMAIN
 myorigin = DOMAIN.ZONE
 mydestination =
 relayhost =
-mynetworks = 127.0.0.0/8 [::ffff:127.0.0.0]/104 [::1]/128
+#mynetworks = 127.0.0.0/8 [::ffff:127.0.0.0]/104 [::1]/128
+mynetworks = 127.0.0.0/8 
 mailbox_size_limit = 0
 recipient_delimiter = +
 
 # Recieving General Config
 inet_interfaces = all
-inet_protocols = all
+#inet_protocols = all
+inet_protocols = ipv4
 mynetworks_style = host
 append_dot_mydomain = no
 local_recipient_maps =
@@ -75,11 +77,11 @@ smtpd_sender_restrictions =
  reject_unknown_sender_domain
  reject_unauth_pipelining
 smtpd_recipient_restrictions =
+ permit_mynetworks
+ permit_sasl_authenticated
  reject_non_fqdn_recipient
  reject_unknown_recipient_domain
  reject_unauth_pipelining
- permit_mynetworks
- permit_sasl_authenticated
  reject_unauth_destination
 smtpd_data_restrictions =
  reject_unauth_pipelining
@@ -126,5 +128,4 @@ smtpd_tls_received_header = yes
 maillog_file=/var/log/postfix.log
 
 # Dovecot
-virtual_transport = dovecot
-dovecot_destination_recipient_limit = 1
+virtual_transport = lmtp:unix:private/dovecot-lmtp

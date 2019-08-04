@@ -1,3 +1,5 @@
+protocols = imap lmtp
+
 # Auth config
 disable_plaintext_auth = yes
 auth_mechanisms = plain login
@@ -46,6 +48,15 @@ protocol imap {
 # Quota config
 plugin {
     quota = maildir:User quota
+}
+
+# LMTP config
+service lmtp {
+  unix_listener /var/spool/postfix/private/dovecot-lmtp {
+    group = postfix
+    mode = 0600
+    user = postfix
+  }
 }
 
 postmaster_address = postmaster@DOMAIN.ZONE

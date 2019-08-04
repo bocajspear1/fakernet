@@ -198,6 +198,7 @@ class SimpleMailServer(BaseModule):
             }
 
             environment = {
+                "DOMAIN": mail_domain
             }
 
             error, server_data = self.mm['dns'].run("get_server", id=1)
