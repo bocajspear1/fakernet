@@ -31,8 +31,14 @@ chown root:root /etc/postfix/dynamicmaps.cf
 chmod 640 /etc/postfix/dynamicmaps.cf 
 postalias /etc/postfix/aliases
 
+
+
 if [ ! -e "/var/www/localhost/htdocs/roundcube/config/config.inc.php" ]; then
     echo "Setting up Roundcube"
+
+    sed -i "s|DOMAIN.ZONE|${DOMAIN}|" /etc/apache2/conf.d/01-access.conf
+    sed -i "s|DOMAIN.ZONE|${DOMAIN}|" /etc/apache2/conf.d/ssl.conf
+
     cp /var/www/localhost/htdocs/roundcube/config/config.inc.php.sample /var/www/localhost/htdocs/roundcube/config/config.inc.php
     IMAPKEY=$(cat /dev/urandom | tr -dc 'a-zA-Z0-9' | fold -w 24 | head -n 1)
     sed -i "s|config\['db_dsnw'\].*\$|config['db_dsnw'] = 'sqlite:////var/www/localhost/db/roundcube.db?mode=0646';|" /var/www/localhost/htdocs/roundcube/config/config.inc.php

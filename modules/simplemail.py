@@ -9,7 +9,7 @@ import requests
 import lib.validate as validate
 from lib.base_module import BaseModule
 
-SERVER_IMAGE_NAME = "simplemail"
+SERVER_IMAGE_NAME = "simplemail2"
 SERVER_BASE_DIR = "{}/work/simplemail".format(os.getcwd())
 
 
@@ -20,14 +20,14 @@ class SimpleMailServer(BaseModule):
 
     __FUNCS__ = {
         "viewall": {
-            "_desc": "View all simplemail servers"
+            "_desc": "View all SimpleMail servers"
         },
         "delete_mail_server": {
-            "_desc": "Delete a CA server",
+            "_desc": "Delete a SimpleMail server",
             "id": "INTEGER"
         },
         "add_mail_server": {
-            "_desc": "Add a CA server",
+            "_desc": "Add a SimpleMail server",
             "fqdn": "TEXT",
             "mail_domain": "TEXT",
             "ip_addr": "IP"

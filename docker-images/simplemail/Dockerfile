@@ -3,7 +3,7 @@ FROM alpine:3.10
 WORKDIR /mail
 
 RUN apk add postfix postfix-sqlite ca-certificates dovecot dovecot-sqlite dovecot-lmtpd sqlite 
-RUN apk add apache2 php7-apache2 php7-iconv php7-curl php7-json php7-xml php7-dom php7-pdo_sqlite php7-mbstring php7-openssl php7-zip php7-pspell php7-fileinfo php7-sockets php7-session
+RUN apk add apache2 apache2-ssl php7-apache2 php7-iconv php7-curl php7-json php7-xml php7-dom php7-pdo_sqlite php7-mbstring php7-openssl php7-zip php7-pspell php7-fileinfo php7-sockets php7-session
 # Backup the packaged postfix-files file, as we need this later
 RUN cp /etc/postfix/postfix-files /mail/postfix-files 
 RUN cp -r /etc/postfix/dynamicmaps.cf.d /mail/dynamicmaps.cf.d
@@ -24,6 +24,9 @@ RUN chown -R apache:apache /var/www/localhost/db/
 RUN chmod -R 775 /var/www/localhost/db/
 
 COPY setup.sh /mail/
+
+COPY apache/01-access.conf /etc/apache2/conf.d/01-access.conf
+COPY apache/ssl.conf /etc/apache2/conf.d/ssl.conf
 
 ENV DOMAIN 'mail.fake'
 
