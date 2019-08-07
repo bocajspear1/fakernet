@@ -12,7 +12,7 @@ class NetReservation(BaseModule):
         self.mm = mm
 
     __FUNCS__ = {
-        "viewall": {
+        "list_networks": {
             "_desc": "View network allocations"
         },
         "get": {
@@ -48,10 +48,13 @@ class NetReservation(BaseModule):
 
     def run(self, func, **kwargs) :
         dbc = self.mm.db.cursor()
-        if func == "viewall":
+        if func == "list_networks":
             dbc.execute("SELECT * FROM networks;") 
             results = dbc.fetchall()
-            return None, results
+            return None, {
+                "rows": results,
+                "columns": ["ID", "Range", "Description", "Switch"]
+            }
         elif func == "delete_network":
             perror, _ = self.validate_params(self.__FUNCS__['get_ip_network'], kwargs)
             if perror is not None:

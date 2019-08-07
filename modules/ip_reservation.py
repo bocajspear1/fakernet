@@ -7,7 +7,7 @@ class IPReservation(BaseModule):
         self.mm = mm
 
     __FUNCS__ = {
-        "viewall": {
+        "list_ips": {
             "_desc": "View IP allocations"
         },
         "get": {
@@ -30,22 +30,25 @@ class IPReservation(BaseModule):
 
     def run(self, func, **kwargs) :
         dbc = self.mm.db.cursor()
-        if func == "viewall":
+        if func == "list_ips":
             dbc.execute("SELECT * FROM ip_list;") 
             results = dbc.fetchall()
-            return results
+            return None, {
+                "rows": results,
+                "columns": ["ID", "IPAddress", "Network ID", "Description"]
+            }
         elif func == "add_ip":
             perror, _ = self.validate_params(self.__FUNCS__['add_ip'], kwargs)
             if perror is not None:
                 return perror, None
 
-            err, results = self.mm['netreserve'].run('viewall')
+            err, results = self.mm['netreserve'].run('list_networks')
             if err is not None:
                 return err, None
 
             ip = kwargs['ip_addr']
             in_network = False
-            for result in results:
+            for result in results['rows']:
                 if validate.is_ip_in_network(ip, result[1]):
                     print(ip, result[1])
                     in_network = result[0] 

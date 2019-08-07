@@ -37,8 +37,8 @@ class FakernetInit(BaseModule):
             
     def check(self):
         
-        err, netallocs = self.mm['netreserve'].run('viewall')
-        if len(netallocs) == 0:
+        err, netallocs = self.mm['netreserve'].run('list_networks')
+        if len(netallocs['rows']) == 0:
             self.init_needed = True
         try:
             self.mm.docker.networks.get(NETWORK_NAME)

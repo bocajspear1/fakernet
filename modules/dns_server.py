@@ -25,7 +25,7 @@ class DNSServer(BaseModule):
         self.mm = mm
 
     __FUNCS__ = {
-        "viewall": {
+        "list_servers": {
             "_desc": "View all DNS servers"
         },
         "delete_server": {
@@ -45,7 +45,7 @@ class DNSServer(BaseModule):
             "direction": ['fwd', 'rev']
         },
         "smart_add_record": {
-            "_desc": "Add a record to a DNS server, trying to determine server and zone",
+            "_desc": "Add a record to a DNS server, detecting server and zone",
             "direction": ['fwd', 'rev'],
             "type": "TEXT",
             "fqdn": "TEXT",
@@ -251,8 +251,27 @@ class DNSServer(BaseModule):
 
     def run(self, func, **kwargs) :
         dbc = self.mm.db.cursor()
-        if func == "viewall":
-            pass 
+        if func == "list_servers":
+            dbc.execute("SELECT * FROM dns_server;") 
+            results = dbc.fetchall()
+            new_results = []
+            for row in results:
+                new_row = list(row)
+                try:
+                    container = self.mm.docker.containers.get("dns-server-{}".format(row[0]))
+                    new_row.append("yes")
+                    new_row.append(container.status)
+                    
+                except docker.errors.NotFound:
+                    new_row.append("no")
+                    new_row.append("n/a")
+                
+                new_results.append(new_row)
+
+            return None, {
+                "rows": new_results,
+                "columns": ['ID', "server_ip", 'description', 'domain', 'built', 'status']
+            }
         elif func == "get_server":
             perror, _ = self.validate_params(self.__FUNCS__['get_server'], kwargs)
             if perror is not None:
