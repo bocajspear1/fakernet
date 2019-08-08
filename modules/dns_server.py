@@ -25,7 +25,7 @@ class DNSServer(BaseModule):
         self.mm = mm
 
     __FUNCS__ = {
-        "list_servers": {
+        "list": {
             "_desc": "View all DNS servers"
         },
         "delete_server": {
@@ -251,7 +251,7 @@ class DNSServer(BaseModule):
 
     def run(self, func, **kwargs) :
         dbc = self.mm.db.cursor()
-        if func == "list_servers":
+        if func == "list":
             dbc.execute("SELECT * FROM dns_server;") 
             results = dbc.fetchall()
             new_results = []

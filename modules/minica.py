@@ -24,7 +24,7 @@ class MiniCAServer(BaseModule):
         self.mm = mm
 
     __FUNCS__ = {
-        "viewall": {
+        "list": {
             "_desc": "View all CA servers"
         },
         "delete_ca": {
@@ -57,7 +57,7 @@ class MiniCAServer(BaseModule):
 
     def run(self, func, **kwargs) :
         dbc = self.mm.db.cursor()
-        if func == "viewall":
+        if func == "list":
             pass 
         elif func == "delete_ca":
             perror, _ = self.validate_params(self.__FUNCS__['delete_ca'], kwargs)
