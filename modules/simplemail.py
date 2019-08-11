@@ -231,7 +231,7 @@ class SimpleMailServer(BaseModule):
             return None, True
 
         else:
-            return "Invalid function"
+            return "Invalid function '{}.{}'".format(self.__SHORTNAME__, func), None
 
     
     def check(self):

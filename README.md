@@ -7,20 +7,22 @@ FakerNet is a framework to quickly build internet-like services rapidly for home
 * Python 3.5+
 * Docker
 * LXD
+* Open vSwitch
 
 ## Supported Services
 
 * DNS
+* Certificate Authority
+  * [minica](https://github.com/bocajspear1/minica)
+* Email Server/Webmail
+* Pastebin clone
+  * [Bepasty](https://github.com/bepasty/bepasty-server)
 
 ## Not-yet-supported Services
 
-* Certificate Authority
-* Email Server
-* Webmail
 * Serverless Code
 * Web Servers
 * Domain Registrar
-* Pastebin clone
 * Status website (isitdownrightnow clone)
 * Reddit Clone
 * Search Engine

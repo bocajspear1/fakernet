@@ -1,0 +1,18 @@
+#!/bin/bash
+
+NAME="bepasty"
+HOME=/opt/bepasty
+SOCKFILE=$HOME/gunicorn.sock  # we will communicate using this unix socket
+PIDFILE=$HOME/gunicorn.pid
+NUM_WORKERS=3                 # how many worker processes should Gunicorn spawn
+export BEPASTY_CONFIG=$HOME/bepasty.conf
+
+cd $HOME/repo
+
+exec gunicorn bepasty.wsgi \
+  --name $NAME \
+  --workers $NUM_WORKERS \
+  --log-level=info \
+  --bind=unix:$SOCKFILE \
+  --pid $PIDFILE \
+  -k gevent

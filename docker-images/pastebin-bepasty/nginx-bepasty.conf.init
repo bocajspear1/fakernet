@@ -1,0 +1,28 @@
+upstream pasty_server {
+  server unix:/opt/bepasty/gunicorn.sock fail_timeout=0;
+}
+
+server {
+  listen 443 ssl default_server;
+  listen 80 default_server;
+  server_name DOMAIN.ZONE;
+
+  ssl_certificate     /etc/certs/bepasty.crt;
+  ssl_certificate_key /etc/certs/bepasty.key;
+  ssl_protocols       TLSv1 TLSv1.1 TLSv1.2;
+  ssl_ciphers         HIGH:!aNULL:!MD5;
+
+  access_log /opt/bepasty/logs/nginx-access.log;
+  error_log /opt/bepasty/logs/nginx-error.log;
+
+  client_max_body_size 32M;
+
+  location / {
+      proxy_set_header Host $http_host;
+      proxy_pass http://pasty_server;
+  }
+
+  location /static/ {
+      alias /opt/bepasty/repo/src/bepasty/static/;
+  }
+}

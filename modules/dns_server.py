@@ -28,7 +28,7 @@ class DNSServer(BaseModule):
         "list": {
             "_desc": "View all DNS servers"
         },
-        "delete_server": {
+        "remove_server": {
             "_desc": "Delete a DNS server",
             "id": "IP"
         },
@@ -79,6 +79,14 @@ class DNSServer(BaseModule):
             "_desc": "Remove a host to a DNS server",
             "fqdn": "TEXT",
             "ip_addr": "IP_ADDR"
+        },
+        "start_server": {
+            "_desc": "Start a DNS server",
+            "id": "INTEGER"
+        },
+        "stop_server": {
+            "_desc": "Stop a DNS server",
+            "id": "INTEGER"
         },
         "get_server": {
             "_desc": "Get info on a DNS server",
@@ -251,20 +259,18 @@ class DNSServer(BaseModule):
 
     def run(self, func, **kwargs) :
         dbc = self.mm.db.cursor()
+
         if func == "list":
             dbc.execute("SELECT * FROM dns_server;") 
             results = dbc.fetchall()
             new_results = []
             for row in results:
                 new_row = list(row)
-                try:
-                    container = self.mm.docker.containers.get("dns-server-{}".format(row[0]))
-                    new_row.append("yes")
-                    new_row.append(container.status)
-                    
-                except docker.errors.NotFound:
-                    new_row.append("no")
-                    new_row.append("n/a")
+                
+                _, status = self.get_docker_status(row[0])
+                new_row.append(status[0])
+                new_row.append(status[1])
+                
                 
                 new_results.append(new_row)
 
@@ -289,38 +295,41 @@ class DNSServer(BaseModule):
                     "domain": result[3],
                 }
 
-        elif func == "delete_server":
-            perror, _ = self.validate_params(self.__FUNCS__['delete_server'], kwargs)
+        elif func == "remove_server":
+            perror, _ = self.validate_params(self.__FUNCS__['remove_server'], kwargs)
             if perror is not None:
                 return perror, None
 
             dns_server_id = kwargs['id']
+            container_name = "dns-server-{}".format(dns_server_id)
+
+            # Ignore any shutdown errors, maybe the container was stopped externally
+            _, result = self.run("stop_server", id=dns_server_id)
 
             dbc.execute("SELECT server_ip FROM dns_server WHERE server_id=?", (dns_server_id,))
             result = dbc.fetchone()
             if not result:
                 return "DNS server does not exist", None
-            
+
             server_ip = result[0]
+            
+            # Deallocate our IP address
+            error, _ = self.mm['ipreserve'].run("remove_ip", ip_addr=server_ip)
+            if error is not None:
+                return error, None
 
-            err, switch = self.mm['netreserve'].run("get_ip_switch", ip_addr=server_ip)
-            if err:
-                return err, None
-
+            # Remove the container from the database
             dbc.execute("DELETE FROM dns_server WHERE server_id=?", (dns_server_id,))
             self.mm.db.commit()
 
-            container_name = "dns-server-{}".format(dns_server_id)
-
-            self.ovs_remove_ports(container_name, switch)
-
+            # Remove the container from Docker
             try:
-                container = self.mm.docker.containers.get("dns-server-{}".format(dns_server_id))
-                container.stop()
+                container = self.mm.docker.containers.get(container_name)
                 container.remove()
-                
             except docker.errors.NotFound:
                 return "DNS server not found in Docker", None
+            except 	docker.errors.APIError:
+                return "Could not remove DNS server in Docker", None
 
             return None, True
 
@@ -347,11 +356,13 @@ class DNSServer(BaseModule):
             if error is not None:
                 return error, None
 
+            # Insert server info into the database
             dbc.execute('INSERT INTO dns_server (server_ip, server_desc, server_domain) VALUES (?, ?, ?)', (server_ip, description, domain))
             self.mm.db.commit()
 
             dns_server_id = dbc.lastrowid
 
+            # Setup config directories
             dns_config_path = "{}/{}".format(DNS_BASE_DIR, dns_server_id)
 
             if os.path.exists(dns_config_path):
@@ -363,39 +374,19 @@ class DNSServer(BaseModule):
             os.mkdir(dns_config_path + "/zones")
             shutil.copy("./docker-images/dns/config-template", dns_config_path + "/named.conf")
 
-            open(dns_config_path + "/conf/empty.conf", "w+")
-
-            vols = {
-                dns_config_path: {"bind": "/etc/bind", 'mode': 'rw'}
-            }
-
-            container_name = "dns-server-{}".format(dns_server_id)
-
-            self.mm.docker.containers.run(DNS_IMAGE_NAME, volumes=vols, detach=True, name=container_name, network_mode="none")
-
-            err, switch = self.mm['netreserve'].run("get_ip_switch", ip_addr=server_ip)
-            if err:
-                return err, None
-
-            err, network = self.mm['netreserve'].run("get_ip_network", ip_addr=server_ip)
-            if err:
-                return err, None
-
-            mask = network.prefixlen
-            gateway = str(list(network.hosts())[0])
-            
-            err, result = self.ovs_set_ip(container_name, switch, "eth0", "{}/{}".format(server_ip, mask), gateway)
-
-            if err is not None:
-                return err, None
+            # Start the server
+            error, result = self.run("start_server", id=dns_server_id)
+            if error is not None:
+                return error, None
 
             # If we are the first DNS server, then set us as the default DNS server for LXD containers
             if dns_server_id == 1:
-
+                err, switch = self.mm['netreserve'].run("get_ip_switch", ip_addr=server_ip)
+                if err:
+                    return err, None
                 network = self.mm.lxd.networks.get(switch)
                 network.config['raw.dnsmasq'] = 'dhcp-option=option:dns-server,{}'.format(server_ip) 
                 network.save()
-
 
             return None, True
             
@@ -446,7 +437,6 @@ class DNSServer(BaseModule):
             name = '.'.join(fqdn_split[:-1])
 
             return self.run('add_record', id=dns_server_id, zone=zone, direction=direction, type=record_type, name=name, value=value)
-
         elif func == "add_record":
             perror, _ = self.validate_params(self.__FUNCS__['add_record'], kwargs)
             if perror is not None:
@@ -483,8 +473,7 @@ class DNSServer(BaseModule):
             except docker.errors.NotFound:
                 return "DNS server not found", None
 
-            return None, True
-            
+            return None, True          
         elif func == "remove_record":
             perror, _ = self.validate_params(self.__FUNCS__['remove_record'], kwargs)
             if perror is not None:
@@ -522,7 +511,6 @@ class DNSServer(BaseModule):
                 return "DNS server not found", None
 
             return None, True
-
         elif func == "add_host":
             perror, _ = self.validate_params(self.__FUNCS__['add_host'], kwargs)
             if perror is not None:
@@ -535,14 +523,88 @@ class DNSServer(BaseModule):
                 return perror, None
 
             return self._remove_host(kwargs['fqdn'], kwargs['ip_addr'])
+        elif func == "start_server":
+            perror, _ = self.validate_params(self.__FUNCS__['start_server'], kwargs)
+            if perror is not None:
+                return perror, None
+
+            dns_server_id = kwargs['id']
+
+            dbc.execute("SELECT server_ip FROM dns_server WHERE server_id=?", (dns_server_id,))
+            result = dbc.fetchone()
+            if not result:
+                return "DNS server does not exist", None
+            
+            container_name = "dns-server-{}".format(dns_server_id)
+            dns_config_path = "{}/{}".format(DNS_BASE_DIR, dns_server_id)
+            server_ip = result[0]
+
+            vols = {
+                dns_config_path: {"bind": "/etc/bind", 'mode': 'rw'}
+            }
+
+            self.mm.docker.containers.run(DNS_IMAGE_NAME, volumes=vols, detach=True, name=container_name, network_mode="none")
+
+            err, switch = self.mm['netreserve'].run("get_ip_switch", ip_addr=server_ip)
+            if err:
+                return err, None
+
+            err, network = self.mm['netreserve'].run("get_ip_network", ip_addr=server_ip)
+            if err:
+                return err, None
+
+            mask = network.prefixlen
+            gateway = str(list(network.hosts())[0])
+            
+            err, result = self.ovs_set_ip(container_name, switch, "eth0", "{}/{}".format(server_ip, mask), gateway)
+
+            if err is not None:
+                return err, None
+
+            return None, True
+        elif func == "stop_server":
+            perror, _ = self.validate_params(self.__FUNCS__['stop_server'], kwargs)
+            if perror is not None:
+                return perror, None
+
+            dns_server_id = kwargs['id']
+            container_name = "dns-server-{}".format(dns_server_id)
+
+            _, status = self.get_docker_status(container_name)
+            if status is not None and status[1] != "running":
+                return "DNS server is not running", None
+
+            # Find the server in the database
+            dbc.execute("SELECT server_ip FROM dns_server WHERE server_id=?", (dns_server_id,))
+            result = dbc.fetchone()
+            if not result:
+                return "DNS server does not exist", None
+
+            server_ip = result[0]
+            
+
+            # Remove port from switch
+            err, switch = self.mm['netreserve'].run("get_ip_switch", ip_addr=server_ip)
+            if err:
+                return err, None
+
+            self.ovs_remove_ports(container_name, switch)
+
+            # Stop container in Docker
+            try:
+                container = self.mm.docker.containers.get("dns-server-{}".format(dns_server_id))
+                container.stop()
+            except docker.errors.NotFound:
+                return "DNS server not found in Docker", None
+
+            return None, True
         else:
-            return "Invalid function '{}'".format(func), None
+            return "Invalid function '{}.{}'".format(self.__SHORTNAME__, func), None
 
     def check(self):
         dbc = self.mm.db.cursor()
 
-        if not os.path.exists("./work/dns"):
-            os.mkdir("./work/dns")
+        self.check_working_dir()
 
         dbc.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='dns_server';")
         if dbc.fetchone() is None:

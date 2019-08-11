@@ -161,7 +161,7 @@ class NetReservation(BaseModule):
             
             return None, True
         else:
-            return "Invalid function", None
+            return "Invalid function '{}.{}'".format(self.__SHORTNAME__, func), None
 
     def check(self):
         dbc = self.mm.db.cursor()

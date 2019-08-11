@@ -266,7 +266,7 @@ class MiniCAServer(BaseModule):
 
 
         else:
-            return "Invalid function"
+            return "Invalid function '{}.{}'".format(self.__SHORTNAME__, func), None
 
     
     def check(self):

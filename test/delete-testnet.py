@@ -15,5 +15,5 @@ error, result = manager['minica'].run("delete_ca", id=1)
 print(error, result)
 
 manager['dns'].check()
-error, result = manager['dns'].run("delete_server", id=1)
+error, result = manager['dns'].run("remove_server", id=1)
 print(error, result)

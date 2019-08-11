@@ -5,8 +5,8 @@ import pylxd
 
 PULL_SERVER = "https://images.linuxcontainers.org"
 PULL_IMAGES = {
-    # "ubuntu_1804": "ubuntu/18.04",
-    # "ubuntu_1604": "ubuntu/16.04",
+    "ubuntu_1804": "ubuntu/18.04",
+    "ubuntu_1604": "ubuntu/16.04",
     "alpine_310": "alpine/3.10"
 }
 
@@ -85,7 +85,7 @@ class LXDManager(BaseModule):
         elif func == "delete_container":
             pass
         else:
-            return "Invalid function", None
+            return "Invalid function '{}.{}'".format(self.__SHORTNAME__, func), None
 
     def check(self):
         dbc = self.mm.db.cursor()
