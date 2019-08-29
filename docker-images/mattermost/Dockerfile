@@ -41,21 +41,23 @@ RUN chown -R mattermost:mattermost /mattermost /config.json.save /mattermost/plu
 
 RUN chmod +s /bin/su
 
-RUN apk add postgresql postgresql-client nginx 
+RUN apk add postgresql postgresql-client libcap
 RUN su postgres -c 'initdb -D /var/lib/postgresql/11/data/'
 RUN ls -la /var/lib/postgresql/11/data/
 RUN addgroup mattermost postgres
 RUN su postgres -c 'echo "local    mattermostdb    mattermost    peer" >> /var/lib/postgresql/11/data/pg_hba.conf'
 RUN mkdir -p /run/postgresql/; chown postgres:postgres /run/postgresql/; chmod 770 /run/postgresql/
-# RUN cp /usr/share/postgresql/postgresql.conf.sample /var/lib/postgresql/11/data/postgresql.conf
+
+RUN setcap cap_net_bind_service=+ep /mattermost/bin/mattermost
 
 #Healthcheck to make sure container is ready
-HEALTHCHECK CMD curl --fail http://localhost:8000 || exit 1
+HEALTHCHECK CMD curl --fail --insecure https://localhost || exit 1
 
 # Configure entrypoint and command
+
+COPY config.json.init /
 COPY entrypoint.sh /
 COPY setup.sh /
-COPY config.json /
 
 WORKDIR /mattermost
-CMD su postgres -c 'pg_ctl start --pgdata=/var/lib/postgresql/11/data/ -o "--data-directory=/var/lib/postgresql/11/data/"';  /bin/ash /setup.sh; nginx; su mattermost -c "/entrypoint.sh mattermost";
+CMD su postgres -c 'pg_ctl start --pgdata=/var/lib/postgresql/11/data/ -o "--data-directory=/var/lib/postgresql/11/data/"';  /bin/ash /setup.sh ${DOMAIN}; su mattermost -c "/entrypoint.sh mattermost";

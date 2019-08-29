@@ -18,10 +18,6 @@ options {
         allow-recursion { any; };
         recursion yes;
 
-        forwarders {
-                8.8.8.8;
-                8.8.4.4;
-        };
-
-
 };
+
+include "/etc/bind/conf/forwarders.conf";

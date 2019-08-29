@@ -374,6 +374,16 @@ class DNSServer(BaseModule):
             os.mkdir(dns_config_path + "/zones")
             shutil.copy("./docker-images/dns/config-template", dns_config_path + "/named.conf")
 
+            # Create forwarders file
+            open(dns_config_path + "/conf/forwarders.conf", "a").close()
+
+            vols = {
+                dns_config_path: {"bind": "/etc/bind", 'mode': 'rw'}
+            }
+
+            # Create the server
+            self.mm.docker.containers.create(DNS_IMAGE_NAME, volumes=vols, detach=True, name=container_name, network_mode="none")
+
             # Start the server
             error, result = self.run("start_server", id=dns_server_id)
             if error is not None:
@@ -530,20 +540,23 @@ class DNSServer(BaseModule):
 
             dns_server_id = kwargs['id']
 
+            # Ensure server exists
             dbc.execute("SELECT server_ip FROM dns_server WHERE server_id=?", (dns_server_id,))
             result = dbc.fetchone()
             if not result:
                 return "DNS server does not exist", None
             
             container_name = "dns-server-{}".format(dns_server_id)
-            dns_config_path = "{}/{}".format(DNS_BASE_DIR, dns_server_id)
             server_ip = result[0]
 
-            vols = {
-                dns_config_path: {"bind": "/etc/bind", 'mode': 'rw'}
-            }
-
-            self.mm.docker.containers.run(DNS_IMAGE_NAME, volumes=vols, detach=True, name=container_name, network_mode="none")
+            # Get the server
+            try:
+                container = self.mm.docker.containers.get(container_name)
+                container.start()
+            except docker.errors.NotFound:
+                return "DNS server not found in Docker", None
+            except 	docker.errors.APIError:
+                return "Could not start DNS server in Docker", None
 
             err, switch = self.mm['netreserve'].run("get_ip_switch", ip_addr=server_ip)
             if err:
@@ -555,6 +568,9 @@ class DNSServer(BaseModule):
 
             mask = network.prefixlen
             gateway = str(list(network.hosts())[0])
+
+            # Ensure no existing interface remains
+            self.ovs_remove_ports(container_name, switch)
             
             err, result = self.ovs_set_ip(container_name, switch, "eth0", "{}/{}".format(server_ip, mask), gateway)
 

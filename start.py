@@ -50,8 +50,12 @@ if manager['init'].init_needed:
 modules_loaded = manager.list_modules()
 
 def print_table(data, headers):
+    if len(data) == 0:
+        print_formatted_text(HTML('<ansiyellow>No results</ansiyellow>'))
+        return
+    
     widths = []
-    row_len = len(data[0])
+    row_len = len(headers)
 
     for i in range(row_len):
         longest = 0
