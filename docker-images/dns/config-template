@@ -18,6 +18,8 @@ options {
         allow-recursion { any; };
         recursion yes;
 
+        include "/etc/bind/conf/forwarders.conf";
+
 };
 
-include "/etc/bind/conf/forwarders.conf";
+

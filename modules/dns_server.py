@@ -91,6 +91,20 @@ class DNSServer(BaseModule):
         "get_server": {
             "_desc": "Get info on a DNS server",
             "id": "INTEGER"
+        },
+        "list_forwarders": {
+            "_desc": "View forwarders for DNS server",
+            "id": "INTEGER"
+        },
+        "add_forwarder": {
+            "_desc": "Add forwarder to DNS server",
+            "id": "INTEGER",
+            "ip_addr": "IP_ADDR"
+        },
+        "remove_forwarder": {
+            "_desc": "Remove forwarder from DNS server",
+            "id": "INTEGER",
+            "ip_addr": "IP_ADDR"
         }
     } 
 
@@ -257,6 +271,39 @@ class DNSServer(BaseModule):
 
         return None, True
 
+    def _parse_forwarders_file(self, path):
+        forwarder_file = open(path, "r").read()
+            
+        forwarder_lines = forwarder_file.split("\n")
+
+        forwarders = []
+        for line in forwarder_lines:
+            line = line.strip()
+            if not ("}" in line or "{" in line) and line != "":
+                forwarders.append(line.replace(";", ""))
+
+        return forwarders
+
+    def _write_forwarders_file(self, path, forwarders):
+        output = "forwarders {\n"
+        for forwarder in forwarders:
+            output += "    {};\n".format(forwarder)
+        output += "};\n"
+        forwarder_file = open(path, "w")
+        forwarder_file.write(output)
+        forwarder_file.close()
+
+    def _rndc_reload(self, dns_server_id):
+        try:
+            container = self.mm.docker.containers.get("dns-server-{}".format(dns_server_id))
+            code, output = container.exec_run("rndc reload")
+            if code != 0:
+                return "'rndc reload' failed", None
+        except docker.errors.NotFound:
+            return "DNS server not found", None
+
+        return None, True
+
     def run(self, func, **kwargs) :
         dbc = self.mm.db.cursor()
 
@@ -294,7 +341,6 @@ class DNSServer(BaseModule):
                     "description": result[2],
                     "domain": result[3],
                 }
-
         elif func == "remove_server":
             perror, _ = self.validate_params(self.__FUNCS__['remove_server'], kwargs)
             if perror is not None:
@@ -332,7 +378,6 @@ class DNSServer(BaseModule):
                 return "Could not remove DNS server in Docker", None
 
             return None, True
-
         elif func == "add_server":
             perror, _ = self.validate_params(self.__FUNCS__['add_server'], kwargs)
             if perror is not None:
@@ -398,15 +443,13 @@ class DNSServer(BaseModule):
                 network.config['raw.dnsmasq'] = 'dhcp-option=option:dns-server,{}'.format(server_ip) 
                 network.save()
 
-            return None, True
-            
+            return None, True           
         elif func == "add_zone":
             perror, _ = self.validate_params(self.__FUNCS__['add_zone'], kwargs)
             if perror is not None:
                 return perror, None
 
             return self._add_zone(kwargs['id'], kwargs['zone'], kwargs['direction'])
-
         elif func == "smart_add_record":
             perror, _ = self.validate_params(self.__FUNCS__['smart_add_record'], kwargs)
             if perror is not None:
@@ -475,15 +518,7 @@ class DNSServer(BaseModule):
             ns.add(value)
             zone.save(autoserial=True)
 
-            try:
-                container = self.mm.docker.containers.get("dns-server-{}".format(dns_server_id))
-                code, output = container.exec_run("rndc reload")
-                if code != 0:
-                    return "'rndc reload' failed", None
-            except docker.errors.NotFound:
-                return "DNS server not found", None
-
-            return None, True          
+            return self._rndc_reload(dns_server_id)        
         elif func == "remove_record":
             perror, _ = self.validate_params(self.__FUNCS__['remove_record'], kwargs)
             if perror is not None:
@@ -614,6 +649,87 @@ class DNSServer(BaseModule):
                 return "DNS server not found in Docker", None
 
             return None, True
+        elif func == "list_forwarders":
+            perror, _ = self.validate_params(self.__FUNCS__['list_forwarders'], kwargs)
+            if perror is not None:
+                return perror, None
+
+            dns_server_id = kwargs['id']
+
+            dns_config_path = "{}/{}".format(DNS_BASE_DIR, dns_server_id)
+            forwarder_conf =  "{}/conf/forwarders.conf".format(dns_config_path)
+
+            # Ensure server exists
+            dbc.execute("SELECT server_ip FROM dns_server WHERE server_id=?", (dns_server_id,))
+            result = dbc.fetchone()
+            if not result:
+                return "DNS server does not exist", None
+
+            forwarders = self._parse_forwarders_file(forwarder_conf)
+
+            forwarder_columns = []
+            for forwarder in forwarders:
+                forwarder_columns.append([forwarder])
+
+            return None, {
+                "rows": forwarder_columns,
+                "columns": ['forwarder']
+            }
+        elif func == "add_forwarder":
+            perror, _ = self.validate_params(self.__FUNCS__['add_forwarder'], kwargs)
+            if perror is not None:
+                return perror, None
+
+            dns_server_id = kwargs['id']
+            forwarder = kwargs['ip_addr']
+
+            dns_config_path = "{}/{}".format(DNS_BASE_DIR, dns_server_id)
+            forwarder_conf =  "{}/conf/forwarders.conf".format(dns_config_path)
+
+            # Ensure server exists
+            dbc.execute("SELECT server_ip FROM dns_server WHERE server_id=?", (dns_server_id,))
+            result = dbc.fetchone()
+            if not result:
+                return "DNS server does not exist", None
+
+            forwarders = self._parse_forwarders_file(forwarder_conf)
+
+            if forwarder in forwarders:
+                return "Forwarder already added", None
+
+            forwarders.append(forwarder)
+
+            self._write_forwarders_file(forwarder_conf, forwarders)
+
+            return self._rndc_reload(dns_server_id)
+
+        elif func == "remove_forwarder":
+            perror, _ = self.validate_params(self.__FUNCS__['add_forwarder'], kwargs)
+            if perror is not None:
+                return perror, None
+
+            dns_server_id = kwargs['id']
+            forwarder = kwargs['ip_addr']
+
+            dns_config_path = "{}/{}".format(DNS_BASE_DIR, dns_server_id)
+            forwarder_conf =  "{}/conf/forwarders.conf".format(dns_config_path)
+
+            # Ensure server exists
+            dbc.execute("SELECT server_ip FROM dns_server WHERE server_id=?", (dns_server_id,))
+            result = dbc.fetchone()
+            if not result:
+                return "DNS server does not exist", None
+
+            forwarders = self._parse_forwarders_file(forwarder_conf)
+
+            if not forwarder in forwarders:
+                return "Forwarder not added", None
+
+            forwarders.remove(forwarder)
+
+            self._write_forwarders_file(forwarder_conf, forwarders)
+
+            return self._rndc_reload(dns_server_id)
         else:
             return "Invalid function '{}.{}'".format(self.__SHORTNAME__, func), None
 

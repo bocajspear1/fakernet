@@ -280,6 +280,11 @@ class FakerNetConsole():
             error, result = self.mm[module_name].run(function_name, **self.current_command['vars'])
             if error is not None:
                 print_formatted_text(HTML('<ansired>Error: {}</ansired>'.format(error)))
+            else:
+                if 'rows' in result and 'columns' in result:
+                    print_table(result['rows'], result['columns'])
+                else:
+                    print_formatted_text(HTML('<ansigreen>OK</ansigreen>'))
 
         else:
             print_formatted_text(HTML('<ansired>Error: Invalid command "{}"</ansired>'.format(command)))
