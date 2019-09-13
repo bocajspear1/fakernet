@@ -36,6 +36,7 @@ class SimpleMailServer(BaseModule):
 
     __SHORTNAME__  = "simplemail"
     __DESC__ = "A simple mail server"
+    __AUTHOR__ = "Jacob Hartman"
 
     def run(self, func, **kwargs) :
         dbc = self.mm.db.cursor()

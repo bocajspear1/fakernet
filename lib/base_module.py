@@ -5,10 +5,16 @@ import docker
 
 class BaseModule():
     __SHORTNAME__ = ""
+    __FUNCS__ = {}
+    __DESC__ = ""
+    __AUTHOR__ = "Not Set"
     mm = {}
 
     def print(self, data):
         print("[" +  self.__SHORTNAME__ + "] " + data)
+
+    def get_path(self):
+        return __file__
 
     def build(self):
         pass

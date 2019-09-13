@@ -5,3 +5,4 @@ fakernet.db
 work/*
 !work/.gitkeep
 **/__pycache__/*
+docs/out/*.html

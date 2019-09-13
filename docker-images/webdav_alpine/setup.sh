@@ -20,3 +20,7 @@ if [ ! -e "/etc/webdav/admin.pass" ]; then
     htpasswd -b -c /var/www/users.passwd admin $PASSWORD
 fi
 
+if [ ! -e "/opt/bepasty/bepasty.conf" ]; then
+    echo "Setting up Apache"
+    sed -i "s|DOMAIN.ZONE|${DOMAIN}|" /etc/apache2/conf.d/davserver.conf
+fi

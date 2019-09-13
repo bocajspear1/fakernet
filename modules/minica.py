@@ -54,6 +54,7 @@ class MiniCAServer(BaseModule):
 
     __SHORTNAME__  = "minica"
     __DESC__ = "A small, web accessible CA for labs"
+    __AUTHOR__ = "Jacob Hartman"
 
     def run(self, func, **kwargs) :
         dbc = self.mm.db.cursor()

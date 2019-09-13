@@ -42,6 +42,7 @@ class MattermostServer(BaseModule):
 
     __SHORTNAME__ = "mattermost"
     __DESC__ = "Mattermost server, similar to Slack"
+    __AUTHOR__ = "Jacob Hartman"
 
     def run(self, func, **kwargs):
         dbc = self.mm.db.cursor()

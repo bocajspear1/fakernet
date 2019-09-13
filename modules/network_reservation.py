@@ -45,6 +45,7 @@ class NetReservation(BaseModule):
 
     __SHORTNAME__  = "netreserve"
     __DESC__ = "Manages network reservations and setup"
+    __AUTHOR__ = "Jacob Hartman"
 
     def run(self, func, **kwargs) :
         dbc = self.mm.db.cursor()

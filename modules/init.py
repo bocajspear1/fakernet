@@ -15,6 +15,7 @@ class FakernetInit(BaseModule):
     } 
 
     __SHORTNAME__  = "init"
+    __DESC__ = "This module runs as the console is started and does any necessary setup and system checks"
 
     def run(self, func, **kwargs) :
         dbc = self.mm.db.cursor()

@@ -2,14 +2,14 @@ FROM alpine:3.10
 
 WORKDIR /webdav
 
-RUN apk add apache2 apache2-webdav apr-util-dbm_db apache2-ssl apache2-utils ca-certificates
+RUN apk add apache2 apache2-webdav apr-util-dbm_db apache2-ssl apache2-utils ca-certificates apache2-ctl
 RUN rm /etc/apache2/conf.d/dav.conf 
 RUN rm /etc/apache2/conf.d/userdir.conf 
 
 # Setup file directories
-RUN mkdir mkdir /var/www/localhost/htdocs/files/
-RUN mkdir mkdir /var/www/localhost/htdocs/files/public
-RUN chown -R /var/www/localhost/htdocs
+RUN mkdir /var/www/localhost/htdocs/files/
+RUN mkdir /var/www/localhost/htdocs/files/public
+RUN chown -R apache:apache /var/www/localhost/htdocs
 
 # Dir for locks
 RUN mkdir /var/lib/dav

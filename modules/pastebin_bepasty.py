@@ -41,6 +41,7 @@ class BePastyServer(BaseModule):
 
     __SHORTNAME__  = "pastebin-bepasty"
     __DESC__ = "PasteBin service using bepasty"
+    __AUTHOR__ = "Jacob Hartman"
 
     def run(self, func, **kwargs) :
         dbc = self.mm.db.cursor()
