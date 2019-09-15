@@ -281,7 +281,7 @@ class FakerNetConsole():
             if error is not None:
                 print_formatted_text(HTML('<ansired>Error: {}</ansired>'.format(error)))
             else:
-                if 'rows' in result and 'columns' in result:
+                if isinstance(result, dict) and 'rows' in result and 'columns' in result:
                     print_table(result['rows'], result['columns'])
                 else:
                     print_formatted_text(HTML('<ansigreen>OK</ansigreen>'))

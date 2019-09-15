@@ -53,7 +53,7 @@ class MattermostServer(BaseModule):
             for row in results:
                 new_row = list(row)
                 
-                _, status = self.get_docker_status(row[0])
+                _, status = self.docker_status(row[0])
                 new_row.append(status[0])
                 new_row.append(status[1])
                 

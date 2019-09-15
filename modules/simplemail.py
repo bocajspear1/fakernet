@@ -9,7 +9,7 @@ import requests
 import lib.validate as validate
 from lib.base_module import BaseModule
 
-SERVER_IMAGE_NAME = "simplemail2"
+
 SERVER_BASE_DIR = "{}/work/simplemail".format(os.getcwd())
 
 
@@ -19,31 +19,54 @@ class SimpleMailServer(BaseModule):
         self.mm = mm
 
     __FUNCS__ = {
-        "viewall": {
+        "list": {
             "_desc": "View all SimpleMail servers"
         },
-        "delete_mail_server": {
+        "remove_server": {
             "_desc": "Delete a SimpleMail server",
             "id": "INTEGER"
         },
-        "add_mail_server": {
+        "add_server": {
             "_desc": "Add a SimpleMail server",
             "fqdn": "TEXT",
             "mail_domain": "TEXT",
             "ip_addr": "IP"
         },
+        "start_server": {
+            "_desc": "Start a SimpleMail server",
+            "id": "INTEGER"
+        },
+        "stop_server": {
+            "_desc": "Start a SimpleMail server",
+            "id": "INTEGER"
+        }
     } 
 
     __SHORTNAME__  = "simplemail"
     __DESC__ = "A simple mail server"
     __AUTHOR__ = "Jacob Hartman"
+    __SERVER_IMAGE_NAME__ = "simplemail"
 
     def run(self, func, **kwargs) :
         dbc = self.mm.db.cursor()
-        if func == "viewall":
-            pass 
-        elif func == "delete_mail_server":
-            perror, _ = self.validate_params(self.__FUNCS__['delete_mail_server'], kwargs)
+        if func == "list":
+            dbc.execute("SELECT * FROM simplemail;") 
+            results = dbc.fetchall()
+            new_results = []
+            for row in results:
+                new_row = list(row)
+                container_name = "simplemail-server-{}".format(row[0])
+                _, status = self.docker_status(container_name)
+                new_row.append(status[0])
+                new_row.append(status[1])
+                new_results.append(new_row)
+
+            return None, {
+                "rows": new_results,
+                "columns": ['ID', "server_fqdn", "server_ip", 'mail_domain', 'built', 'status']
+            } 
+        elif func == "remove_server":
+            perror, _ = self.validate_params(self.__FUNCS__['remove_server'], kwargs)
             if perror is not None:
                 return perror, None
             
@@ -57,38 +80,26 @@ class SimpleMailServer(BaseModule):
             server_ip = result[1]
             fqdn = result[0]
 
-            err, switch = self.mm['netreserve'].run("get_ip_switch", ip_addr=server_ip)
-            if err:
-                return err, None
-
             dbc.execute("DELETE FROM simplemail WHERE server_id=?", (simplemail_id,))
             self.mm.db.commit()
 
             container_name = "simplemail-server-{}".format(simplemail_id)
 
-            self.ovs_remove_ports(container_name, switch)
+            self.docker_stop(container_name, server_ip)
 
-            try:
-                container = self.mm.docker.containers.get(container_name)
-                container.stop()
-                container.remove()
-            except docker.errors.NotFound:
-                # return "SimpleMail server not found in Docker", None
-                pass
-
+            # Remove the IP allocation
             error, _ = self.mm['ipreserve'].run("remove_ip", ip_addr=server_ip)
             if error is not None:
                 return error, None
-
 
             # Remove the host from the DNS server
             err, _ = self.mm['dns'].run("remove_host", fqdn=fqdn, ip_addr=server_ip)
             if err is not None:
                 return err, None
 
-            return None, True
-        elif func == "add_mail_server":
-            perror, _ = self.validate_params(self.__FUNCS__['add_mail_server'], kwargs)
+            return self.docker_delete(container_name)
+        elif func == "add_server":
+            perror, _ = self.validate_params(self.__FUNCS__['add_server'], kwargs)
             if perror is not None:
                 return perror, None
 
@@ -189,9 +200,6 @@ class SimpleMailServer(BaseModule):
                 else:
                     shutil.copy(full_path, out_path)
 
-            # Start the Docker container
-            container_name = "simplemail-server-{}".format(simplemail_id)
-
             vols = {
                 postfix_dir: {"bind": "/etc/postfix", 'mode': 'rw'},
                 dovecot_dir: {"bind": "/etc/dovecot", 'mode': 'rw'},
@@ -202,25 +210,13 @@ class SimpleMailServer(BaseModule):
                 "DOMAIN": mail_domain
             }
 
-            error, server_data = self.mm['dns'].run("get_server", id=1)
-            if error is not None:
-                return "No base DNS server has been created", None    
+            container_name = "simplemail-server-{}".format(simplemail_id)
 
-            self.mm.docker.containers.run(SERVER_IMAGE_NAME, volumes=vols, environment=environment, detach=True, name=container_name, network_mode="none", dns=[server_data['server_ip']])
-
-            # Configure networking
-            err, switch = self.mm['netreserve'].run("get_ip_switch", ip_addr=server_ip)
-            if err:
-                return err, None
-
-            err, network = self.mm['netreserve'].run("get_ip_network", ip_addr=server_ip)
-            if err:
+            err, _ = self.docker_create(container_name, vols, environment)
+            if err is not None:
                 return err, None
             
-            mask = network.prefixlen
-            gateway = str(list(network.hosts())[0])
-
-            err, _ = self.ovs_set_ip(container_name, switch, "eth0", "{}/{}".format(server_ip, mask), gateway)
+            err, _ = self.run("start_server", id=simplemail_id)
             if err is not None:
                 return err, None
 
@@ -230,7 +226,47 @@ class SimpleMailServer(BaseModule):
                 return err, None
 
             return None, True
+        elif func == "start_server":
+            perror, _ = self.validate_params(self.__FUNCS__['start_server'], kwargs)
+            if perror is not None:
+                return perror, None
 
+            simplemail_id = kwargs['id']
+
+            # Get server ip from database
+            dbc.execute("SELECT server_ip FROM simplemail WHERE server_id=?", (simplemail_id,))
+            result = dbc.fetchone()
+            if not result:
+                return "SimpleMail server does not exist", None
+
+            server_ip = result[0]
+
+            # Start the Docker container
+            container_name = "simplemail-server-{}".format(simplemail_id)
+
+            return self.docker_start(container_name, server_ip)
+        elif func == "stop_server":
+            perror, _ = self.validate_params(self.__FUNCS__['stop_server'], kwargs)
+            if perror is not None:
+                return perror, None
+
+            simplemail_id = kwargs['id']
+            container_name = "simplemail-server-{}".format(simplemail_id)
+
+            # Check if the server is running
+            _, status = self.docker_status(container_name)
+            if status is not None and status[1] != "running":
+                return "SimpleMail server is not running", None
+
+            # Find the server in the database
+            dbc.execute("SELECT server_ip FROM alpinewebdav WHERE server_id=?", (simplemail_id,))
+            result = dbc.fetchone()
+            if not result:
+                return "SimpleMail server does not exist", None
+
+            server_ip = result[0]
+
+            return self.docker_stop(container_name, server_ip)
         else:
             return "Invalid function '{}.{}'".format(self.__SHORTNAME__, func), None
 
@@ -248,6 +284,6 @@ class SimpleMailServer(BaseModule):
     
     def build(self):
         self.print("Building SimpleMail server image...")
-        self.mm.docker.images.build(path="./docker-images/simplemail/", tag=SERVER_IMAGE_NAME, rm=True, nocache=True)
+        self.mm.docker.images.build(path="./docker-images/simplemail/", tag=self.__SERVER_IMAGE_NAME__, rm=True, nocache=True)
 
 __MODULE__ = SimpleMailServer

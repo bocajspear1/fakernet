@@ -9,7 +9,7 @@ import requests
 import lib.validate as validate
 from lib.base_module import BaseModule
 
-CA_IMAGE_NAME = "minica"
+CA_IMAGE_NAME = ""
 CA_BASE_DIR = "{}/work/minica".format(os.getcwd())
 
 DEFAULT_COUNTRY = "US"
@@ -17,6 +17,8 @@ DEFAULT_STATE = "NP"
 DEFAULT_CITY = "Someplace"
 DEFAULT_ORG = "FakerNet Org"
 DEFAULT_DIV = "Servers"
+
+INSTANCE_TEMPLATE = "minica-server-{}"
 
 class MiniCAServer(BaseModule):
 
@@ -27,11 +29,11 @@ class MiniCAServer(BaseModule):
         "list": {
             "_desc": "View all CA servers"
         },
-        "delete_ca": {
+        "remove_server": {
             "_desc": "Delete a CA server",
             "id": "INTEGER"
         },
-        "add_ca": {
+        "add_server": {
             "_desc": "Add a CA server",
             "fqdn": "TEXT",
             "ip_addr": "IP"
@@ -49,19 +51,28 @@ class MiniCAServer(BaseModule):
             "_desc": "Get a server's CA cert",
             "id": "INTEGER",
             "type": "TEXT"
+        },
+        "start_server": {
+            "_desc": "Start a CA server",
+            "id": "INTEGER"
+        },
+        "stop_server": {
+            "_desc": "Stop a CA server",
+            "id": "INTEGER"
         }
     } 
 
     __SHORTNAME__  = "minica"
     __DESC__ = "A small, web accessible CA for labs"
     __AUTHOR__ = "Jacob Hartman"
+    __SERVER_IMAGE_NAME__ = "minica"
 
     def run(self, func, **kwargs) :
         dbc = self.mm.db.cursor()
         if func == "list":
             pass 
-        elif func == "delete_ca":
-            perror, _ = self.validate_params(self.__FUNCS__['delete_ca'], kwargs)
+        elif func == "remove_server":
+            perror, _ = self.validate_params(self.__FUNCS__['remove_server'], kwargs)
             if perror is not None:
                 return perror, None
             
@@ -82,35 +93,26 @@ class MiniCAServer(BaseModule):
             dbc.execute("DELETE FROM minica_server WHERE server_id=?", (minica_server_id,))
             self.mm.db.commit()
 
-            container_name = "minica-server-{}".format(minica_server_id)
+            container_name = INSTANCE_TEMPLATE.format(minica_server_id)
 
-            self.ovs_remove_ports(container_name, switch)
+            self.docker_stop(container_name, server_ip)
 
-            try:
-                container = self.mm.docker.containers.get(container_name)
-                container.stop()
-                container.remove()
-            except docker.errors.NotFound:
-                return "MiniCA server not found in Docker", None
-
+            # Remove the IP allocation
             error, _ = self.mm['ipreserve'].run("remove_ip", ip_addr=server_ip)
             if error is not None:
                 return error, None
 
-
             # Remove the host from the DNS server
-             # Configure the DNS name
             err, _ = self.mm['dns'].run("remove_host", fqdn=fqdn, ip_addr=server_ip)
             if err is not None:
                 return err, None
 
             return None, True
-        elif func == "add_ca":
-            perror, _ = self.validate_params(self.__FUNCS__['add_ca'], kwargs)
+        elif func == "add_server":
+            perror, _ = self.validate_params(self.__FUNCS__['add_server'], kwargs)
             if perror is not None:
                 return perror, None
 
-            print(kwargs)
             fqdn = kwargs['fqdn']
             server_ip = kwargs['ip_addr']
 
@@ -138,7 +140,7 @@ class MiniCAServer(BaseModule):
             os.mkdir(ca_data_path)
 
             # Start the Docker container
-            container_name = "minica-server-{}".format(minica_server_id)
+            container_name = INSTANCE_TEMPLATE.format(minica_server_id)
 
             vols = {
                 ca_data_path: {"bind": "/ca/minica/certs", 'mode': 'rw'}
@@ -149,25 +151,11 @@ class MiniCAServer(BaseModule):
                 "IP": server_ip
             }
 
-            error, server_data = self.mm['dns'].run("get_server", id=1)
-            if error is not None:
-                return "No base DNS server has been created", None    
-
-            self.mm.docker.containers.run(CA_IMAGE_NAME, volumes=vols, environment=environment, detach=True, name=container_name, network_mode="none", dns=[server_data['server_ip']])
-
-            # Configure networking
-            err, switch = self.mm['netreserve'].run("get_ip_switch", ip_addr=server_ip)
-            if err:
-                return err, None
-
-            err, network = self.mm['netreserve'].run("get_ip_network", ip_addr=server_ip)
-            if err:
+            err, _ = self.docker_create(container_name, vols, environment)
+            if err is not None:
                 return err, None
             
-            mask = network.prefixlen
-            gateway = str(list(network.hosts())[0])
-
-            err, _ = self.ovs_set_ip(container_name, switch, "eth0", "{}/{}".format(server_ip, mask), gateway)
+            err, _ = self.run("start_server", id=minica_server_id)
             if err is not None:
                 return err, None
 
@@ -177,6 +165,47 @@ class MiniCAServer(BaseModule):
                 return err, None
 
             return None, True
+        elif func == "start_server":
+            perror, _ = self.validate_params(self.__FUNCS__['start_server'], kwargs)
+            if perror is not None:
+                return perror, None
+
+            ca_id = kwargs['id']
+
+            # Get server ip from database
+            dbc.execute("SELECT server_ip FROM minica_server WHERE server_id=?", (ca_id,))
+            result = dbc.fetchone()
+            if not result:
+                return "CA server does not exist", None
+
+            server_ip = result[0]
+            
+            # Start the Docker container
+            container_name = INSTANCE_TEMPLATE.format(ca_id)
+
+            return self.docker_start(container_name, server_ip)
+        elif func == "stop_server":
+            perror, _ = self.validate_params(self.__FUNCS__['stop_server'], kwargs)
+            if perror is not None:
+                return perror, None
+
+            ca_id = kwargs['id']
+            container_name = INSTANCE_TEMPLATE.format(ca_id)
+
+            # Check if the server is running
+            _, status = self.docker_status(container_name)
+            if status is not None and status[1] != "running":
+                return "CA server is not running", None
+
+            # Find the server in the database
+            dbc.execute("SELECT server_ip FROM minica_server WHERE server_id=?", (ca_id,))
+            result = dbc.fetchone()
+            if not result:
+                return "CA server does not exist", None
+
+            server_ip = result[0]
+
+            return self.docker_stop(container_name, server_ip)
         elif func == "get_ca_cert":
             perror, _ = self.validate_params(self.__FUNCS__['get_ca_cert'], kwargs)
             if perror is not None:
@@ -283,6 +312,6 @@ class MiniCAServer(BaseModule):
     
     def build(self):
         self.print("Building MiniCA server image...")
-        self.mm.docker.images.build(path="./docker-images/minica/", tag=CA_IMAGE_NAME, rm=True, nocache=True)
+        self.mm.docker.images.build(path="./docker-images/minica/", tag=self.__SERVER_IMAGE_NAME__, rm=True, nocache=True)
 
 __MODULE__ = MiniCAServer

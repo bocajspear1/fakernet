@@ -110,6 +110,7 @@ class DNSServer(BaseModule):
 
     __SHORTNAME__  = "dns"
     __DESC__ = "Creates and manages BIND DNS servers"
+    __AUTHOR__ = "Jacob Hartman"
 
     def _get_dns_server(self, fqdn):
         dbc = self.mm.db.cursor()
@@ -314,7 +315,7 @@ class DNSServer(BaseModule):
             for row in results:
                 new_row = list(row)
                 
-                _, status = self.get_docker_status(row[0])
+                _, status = self.docker_status(row[0])
                 new_row.append(status[0])
                 new_row.append(status[1])
                 
@@ -621,7 +622,7 @@ class DNSServer(BaseModule):
             dns_server_id = kwargs['id']
             container_name = "dns-server-{}".format(dns_server_id)
 
-            _, status = self.get_docker_status(container_name)
+            _, status = self.docker_status(container_name)
             if status is not None and status[1] != "running":
                 return "DNS server is not running", None
 

@@ -84,30 +84,9 @@ class AlpineWebDAVServer(BaseModule):
             data_dir = alpinewebdav_data_path + "/webdav"
             os.mkdir(data_dir)
 
-             # Get the key and cert
-            err, (priv_key, cert) = self.mm['minica'].run("generate_host_cert", id=1, fqdn=fqdn)
+            err, _ = self.ssl_setup(fqdn, certs_dir,"alpinewebdav")
             if err is not None:
                 return err, None
-
-            out_key_path = certs_dir + "/alpinewebdav.key"
-            out_key = open(out_key_path, "w+")
-            out_key.write(priv_key)
-            out_key.close()
-
-            out_cert_path = certs_dir + "/alpinewebdav.crt"
-            out_cert = open(out_cert_path, "w+")
-            out_cert.write(cert)
-            out_cert.close()
-
-            # Write the CA cert
-            err, ca_cert_file = self.mm['minica'].run("get_ca_cert", id=1, type="linux")
-            if err is not None:
-                return err, None
-
-            ca_cert_path = certs_dir + "/fakernet-ca.crt"
-            ca_cert = open(ca_cert_path, "w+")
-            ca_cert.write(ca_cert_file)
-            ca_cert.close()
 
             err, _ = self.run("start_server", id=alpinewebdav_id)
             if err is not None:
@@ -223,7 +202,7 @@ class AlpineWebDAVServer(BaseModule):
             container_name = "alpinewebdav-server-{}".format(alpinewebdav_id)
 
             # Check if the server is running
-            _, status = self.get_docker_status(container_name)
+            _, status = self.docker_status(container_name)
             if status is not None and status[1] != "running":
                 return "WebDAV server is not running", None
 
@@ -235,21 +214,7 @@ class AlpineWebDAVServer(BaseModule):
 
             server_ip = result[0]
 
-            # Remove port from switch
-            err, switch = self.mm['netreserve'].run("get_ip_switch", ip_addr=server_ip)
-            if err:
-                return err, None
-
-            self.ovs_remove_ports(container_name, switch)
-
-            # Stop container in Docker
-            try:
-                container = self.mm.docker.containers.get(container_name)
-                container.stop()
-            except docker.errors.NotFound:
-                return "WebDAV server not found in Docker", None
-
-            return None, True
+            return self.docker_stop(container_name, server_ip)
 
         else:
             return "Invalid function '{}.{}'".format(self.__SHORTNAME__, func), None

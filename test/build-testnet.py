@@ -21,5 +21,5 @@ error, result = manager['dns'].run("add_zone", id=1, direction="fwd", zone="test
 print(error, result)
 
 manager['minica'].check()
-error, result = manager['minica'].run("add_ca", fqdn="ca.test", ip_addr="172.16.3.3")
+error, result = manager['minica'].run("add_server", fqdn="ca.test", ip_addr="172.16.3.3")
 print(error, result)

@@ -9,7 +9,7 @@ import requests
 import lib.validate as validate
 from lib.base_module import BaseModule
 
-SERVER_IMAGE_NAME = "bepasty"
+
 
 class BePastyServer(BaseModule):
 
@@ -34,7 +34,7 @@ class BePastyServer(BaseModule):
             "id": "INTEGER"
         },
         "stop_server": {
-            "_desc": "Start a pastebin server",
+            "_desc": "Stop a pastebin server",
             "id": "INTEGER"
         }
     } 
@@ -42,11 +42,26 @@ class BePastyServer(BaseModule):
     __SHORTNAME__  = "pastebin-bepasty"
     __DESC__ = "PasteBin service using bepasty"
     __AUTHOR__ = "Jacob Hartman"
+    __SERVER_IMAGE_NAME__ = "bepasty"
 
     def run(self, func, **kwargs) :
         dbc = self.mm.db.cursor()
-        if func == "viewall":
-            pass
+        if func == "list":
+            dbc.execute("SELECT * FROM bepasty;") 
+            results = dbc.fetchall()
+            new_results = []
+            for row in results:
+                new_row = list(row)
+                container_name = "bepasty-server-{}".format(row[0])
+                _, status = self.docker_status(container_name)
+                new_row.append(status[0])
+                new_row.append(status[1])
+                new_results.append(new_row)
+
+            return None, {
+                "rows": new_results,
+                "columns": ['ID', "server_fqdn", "server_ip", 'built', 'status']
+            } 
         elif func == "add_server":
             perror, _ = self.validate_params(self.__FUNCS__['add_server'], kwargs)
             if perror is not None:
@@ -57,7 +72,7 @@ class BePastyServer(BaseModule):
 
             dbc.execute("SELECT server_id FROM bepasty WHERE server_fqdn=?", (fqdn,))
             if dbc.fetchone():
-                return "Bepasty server already exists of that FQDN or mail domain", None
+                return "Bepasty server already exists of that FQDN", None
 
             # Allocate our IP address
             error, _ = self.mm['ipreserve'].run("add_ip", ip_addr=server_ip, description="Bepasty Server: {}".format(fqdn))
@@ -107,6 +122,20 @@ class BePastyServer(BaseModule):
             ca_cert.write(ca_cert_file)
             ca_cert.close()
 
+            vols = {
+                certs_dir: {"bind": "/etc/certs", 'mode': 'rw'}
+            }
+
+            environment = {
+                "DOMAIN": fqdn
+            }
+
+            container_name = "bepasty-server-{}".format(bepasty_id)
+
+            err, _ = self.docker_create(container_name, vols, environment)
+            if err is not None:
+                return err, None
+
             err, _ = self.run("start_server", id=bepasty_id)
             if err is not None:
                 return err, None
@@ -114,6 +143,8 @@ class BePastyServer(BaseModule):
             err, _ = self.mm['dns'].run("add_host", fqdn=fqdn, ip_addr=server_ip)
             if err is not None:
                 return err, None
+
+            return None, True
 
         elif func == "remove_server":
             perror, _ = self.validate_params(self.__FUNCS__['remove_server'], kwargs)
@@ -131,7 +162,7 @@ class BePastyServer(BaseModule):
             dbc.execute("SELECT server_ip FROM bepasty WHERE server_id=?", (bepasty_id,))
             result = dbc.fetchone()
             if not result:
-                return "DNS server does not exist", None
+                return "BePasty server does not exist", None
 
             server_ip = result[0]
 
@@ -144,16 +175,7 @@ class BePastyServer(BaseModule):
             if error is not None:
                 return error, None
 
-            # Remove the container from Docker
-            try:
-                container = self.mm.docker.containers.get(container_name)
-                container.remove()
-            except docker.errors.NotFound:
-                return "Bepasty server not found in Docker", None
-            except docker.errors.APIError:
-                return "Could not remove Bepasty server in Docker", None
-
-            return None, True
+            return self.docker_delete(container_name)
 
         elif func == "start_server":
             perror, _ = self.validate_params(self.__FUNCS__['start_server'], kwargs)
@@ -163,53 +185,17 @@ class BePastyServer(BaseModule):
             bepasty_id = kwargs['id']
 
             # Get server ip from database
-            dbc.execute("SELECT server_ip, server_fqdn FROM bepasty WHERE server_id=?", (bepasty_id,))
+            dbc.execute("SELECT server_ip FROM bepasty WHERE server_id=?", (bepasty_id,))
             result = dbc.fetchone()
             if not result:
                 return "Bepasty does not exist", None
 
             server_ip = result[0]
-            fqdn = result[1]
             
             # Start the Docker container
             container_name = "bepasty-server-{}".format(bepasty_id)
 
-            bepasty_data_path = "{}/{}".format(self.get_working_dir(), bepasty_id)
-            certs_dir = bepasty_data_path + "/certs"
-
-            vols = {
-                certs_dir: {"bind": "/etc/certs", 'mode': 'rw'}
-            }
-
-            environment = {
-                "DOMAIN": fqdn
-            }
-
-            # Get the DNS server
-            error, server_data = self.mm['dns'].run("get_server", id=1)
-            if error is not None:
-                return "No base DNS server has been created", None    
-
-            # Start the Docker container with all our options
-            self.mm.docker.containers.run(SERVER_IMAGE_NAME, volumes=vols, environment=environment, detach=True, name=container_name, network_mode="none", dns=[server_data['server_ip']])
-
-            # Configure networking
-            err, switch = self.mm['netreserve'].run("get_ip_switch", ip_addr=server_ip)
-            if err:
-                return err, None
-
-            err, network = self.mm['netreserve'].run("get_ip_network", ip_addr=server_ip)
-            if err:
-                return err, None
-            
-            mask = network.prefixlen
-            gateway = str(list(network.hosts())[0])
-
-            err, _ = self.ovs_set_ip(container_name, switch, "eth0", "{}/{}".format(server_ip, mask), gateway)
-            if err is not None:
-                return err, None
-
-            return None, True
+            return self.docker_start(container_name, server_ip)
         elif func == "stop_server":
             perror, _ = self.validate_params(self.__FUNCS__['stop_server'], kwargs)
             if perror is not None:
@@ -219,7 +205,7 @@ class BePastyServer(BaseModule):
             container_name = "bepasty-server-{}".format(bepasty_id)
 
             # Check if the server is running
-            _, status = self.get_docker_status(container_name)
+            _, status = self.docker_status(container_name)
             if status is not None and status[1] != "running":
                 return "Bepasty server is not running", None
 
@@ -231,22 +217,7 @@ class BePastyServer(BaseModule):
 
             server_ip = result[0]
 
-            # Remove port from switch
-            err, switch = self.mm['netreserve'].run("get_ip_switch", ip_addr=server_ip)
-            if err:
-                return err, None
-
-            self.ovs_remove_ports(container_name, switch)
-
-            # Stop container in Docker
-            try:
-                container = self.mm.docker.containers.get(container_name)
-                container.stop()
-            except docker.errors.NotFound:
-                return "Bepasty server not found in Docker", None
-
-            return None, True
-
+            return self.docker_stop(container_name, server_ip)
         else:
             return "Invalid function '{}.{}'".format(self.__SHORTNAME__, func), None
 
@@ -263,6 +234,6 @@ class BePastyServer(BaseModule):
     
     def build(self):
         self.print("Building PasteBin Bepasty server image...")
-        self.mm.docker.images.build(path="./docker-images/pastebin-bepasty/", tag=SERVER_IMAGE_NAME, rm=True, nocache=True)
+        self.mm.docker.images.build(path="./docker-images/pastebin-bepasty/", tag=self.__SERVER_IMAGE_NAME__, rm=True, nocache=True)
 
 __MODULE__ = BePastyServer

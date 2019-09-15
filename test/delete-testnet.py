@@ -11,7 +11,7 @@ manager = ModuleManager()
 manager.load()
 
 manager['minica'].check()
-error, result = manager['minica'].run("delete_ca", id=1)
+error, result = manager['minica'].run("remove_server", id=1)
 print(error, result)
 
 manager['dns'].check()
