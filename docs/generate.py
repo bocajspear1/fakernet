@@ -37,7 +37,7 @@ for mod_name in modules:
 
     details = "Not set"
 
-    details_path = os.path.normpath(os.path.dirname(os.path.abspath(__file__)) + "/../module-desc") + "/{}.md".format(mod_name)
+    details_path = os.path.normpath(os.path.dirname(os.path.abspath(__file__)) + "/modules") + "/{}.md".format(mod_name)
     if os.path.exists(details_path):
         details_file = open(details_path).read()
         details = markdown.markdown(details_file)

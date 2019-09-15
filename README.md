@@ -17,6 +17,8 @@ FakerNet is a framework to quickly build internet-like services rapidly for home
 * Email Server/Webmail
 * Pastebin clone
   * [Bepasty](https://github.com/bepasty/bepasty-server)
+* WebDAV
+* [Mattermost](https://mattermost.com/) (Slack alternative)
 
 ## Not-yet-supported Services
 
@@ -28,7 +30,6 @@ FakerNet is a framework to quickly build internet-like services rapidly for home
 * Search Engine
 * IRC Server
 * GitHub clone
-* Mattermost
 * Twitter clone
 * Social Media
 * Wiki
@@ -38,6 +39,8 @@ FakerNet is a framework to quickly build internet-like services rapidly for home
 
 
 ### Docker
+
+Be sure your user is the `docker` group so they can execute Docker commands
 
 For the sake of security, set Docker to run containers unprivileged. 
 ```
@@ -61,3 +64,7 @@ To allow Fakernet to create switches and manage ports, you will need to allow th
 jacob ALL=(ALL) NOPASSWD: /usr/bin/ovs-vsctl
 jacob ALL=(ALL) NOPASSWD: /usr/bin/ovs-docker
 ```
+
+### LXD
+
+Be sure your user is in the `lxd` group to allow the execution of LXD commands.
