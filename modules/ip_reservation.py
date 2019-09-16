@@ -43,7 +43,7 @@ class IPReservation(BaseModule):
             if perror is not None:
                 return perror, None
 
-            err, results = self.mm['netreserve'].run('list_networks')
+            err, results = self.mm['netreserve'].run('list')
             if err is not None:
                 return err, None
 

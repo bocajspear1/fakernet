@@ -78,7 +78,7 @@ class LXDManager(BaseModule):
             ip_addr = kwargs['ip_addr']
             template = kwargs['template']
 
-            dbc.execute('INSERT INTO lxd_container (lxd_id, fqdn, ip_addr, template) VALUES (?, ?, ?, ?)', (lxd_id, fqdn, ip_addr, template))
+            dbc.execute('INSERT INTO lxd_container (fqdn, ip_addr, template) VALUES (?, ?, ?, ?)', (fqdn, ip_addr, template))
             self.mm.db.commit()
 
             lxd_id = dbc.lastrowid

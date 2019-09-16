@@ -12,7 +12,7 @@ class NetReservation(BaseModule):
         self.mm = mm
 
     __FUNCS__ = {
-        "list_networks": {
+        "list": {
             "_desc": "View network allocations"
         },
         "get": {
@@ -25,7 +25,7 @@ class NetReservation(BaseModule):
             "description": "TEXT",
             "switch": "TEXT"
         },
-        "delete_network": {
+        "remove_network": {
             "_desc": "Delete a network allocation",
             "id": "INTEGER"
         },
@@ -49,14 +49,14 @@ class NetReservation(BaseModule):
 
     def run(self, func, **kwargs) :
         dbc = self.mm.db.cursor()
-        if func == "list_networks":
+        if func == "list":
             dbc.execute("SELECT * FROM networks;") 
             results = dbc.fetchall()
             return None, {
                 "rows": results,
                 "columns": ["ID", "Range", "Description", "Switch"]
             }
-        elif func == "delete_network":
+        elif func == "remove_network":
             perror, _ = self.validate_params(self.__FUNCS__['get_ip_network'], kwargs)
             if perror is not None:
                 return perror, None
@@ -104,23 +104,25 @@ class NetReservation(BaseModule):
                 dbc.execute('INSERT INTO networks (net_address, net_desc, switch_name) VALUES (?, ?, ?)', (new_network, kwargs['description'], switch))
                 self.mm.db.commit()
 
-                # Ensure the switch exists
-                try:
-                    subprocess.check_output(["/usr/bin/sudo", "/usr/bin/ovs-vsctl", "br-exists", switch])
-                except:
-                    
-                    lxd_net_config = {
-                        'ipv4.address': str(list(new_network_obj.hosts())[0]) + "/" + str(new_network_obj.prefixlen),
-                        'ipv4.nat': 'false',
-                        'bridge.driver': 'openvswitch'
-                    }
+                # A blank switch means we don't want one
+                if switch != "":
+                    # Ensure the switch exists
+                    try:
+                        subprocess.check_output(["/usr/bin/sudo", "/usr/bin/ovs-vsctl", "br-exists", switch])
+                    except:
+                        
+                        lxd_net_config = {
+                            'ipv4.address': str(list(new_network_obj.hosts())[0]) + "/" + str(new_network_obj.prefixlen),
+                            'ipv4.nat': 'false',
+                            'bridge.driver': 'openvswitch'
+                        }
 
-                    # If we have a base dns server, set the networks DNS server
-                    error, server_data = self.mm['dns'].run("get_server", id=1)
-                    if error is None:
-                        lxd_net_config['raw.dnsmasq'] = 'dhcp-option=option:dns-server,{}'.format(server_data['server_ip'])
+                        # If we have a base dns server, set the networks DNS server
+                        error, server_data = self.mm['dns'].run("get_server", id=1)
+                        if error is None:
+                            lxd_net_config['raw.dnsmasq'] = 'dhcp-option=option:dns-server,{}'.format(server_data['server_ip'])
 
-                    self.mm.lxd.networks.create(switch, config=lxd_net_config)
+                        self.mm.lxd.networks.create(switch, config=lxd_net_config)
 
                     
 

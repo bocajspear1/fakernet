@@ -38,7 +38,7 @@ class FakernetInit(BaseModule):
             
     def check(self):
         
-        err, netallocs = self.mm['netreserve'].run('list_networks')
+        err, netallocs = self.mm['netreserve'].run('list')
         if len(netallocs['rows']) == 0:
             self.init_needed = True
         try:
