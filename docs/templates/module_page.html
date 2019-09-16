@@ -1,20 +1,14 @@
 <html>
     <head>
         <title>{{ module_name }} Module</title>
-        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/mini.css/3.0.1/mini-default.min.css">
+        {% include '_head.html' %}
     </head>
     <body>
-        <header>
-            <a href="#" class="logo">FakerNet</a>
-            <a href="#" class="button">Home</a>
-        </header>
+        {% include '_header.html' %}
         <main class="container">
             <div class="row">
                 <div class="col-sm-2">
-                    <nav>
-                    {% for item in links %}
-                        <a href="{{ item }}.html">{{ item }}</a>
-                    {% endfor %}
+                    {% include '_nav.html' %}
                 </div>  
                 <div class="col-sm-10">
                     <div class="large card">
@@ -74,8 +68,6 @@
                 </div>
             </div>
         </main>
-        <footer>
-            <p>This documentation is part of the FakerNet Project</p>
-        </footer>
+        {% include '_footer.html' %}
     </body>
 </html>
