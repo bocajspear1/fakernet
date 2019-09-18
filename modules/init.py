@@ -1,5 +1,6 @@
 from lib.base_module import BaseModule
 import docker 
+import subprocess
 
 NETWORK_NAME = "fnexternal0"
 
@@ -11,7 +12,9 @@ class FakernetInit(BaseModule):
         self.network_needed = False
 
     __PARAMS__ = {
-
+        "verify_permissions": {
+            "_desc": "Verify permissions on different components"
+        }
     } 
 
     __SHORTNAME__  = "init"
@@ -19,21 +22,33 @@ class FakernetInit(BaseModule):
 
     def run(self, func, **kwargs) :
         dbc = self.mm.db.cursor()
-        if func == "start-network":
-            if not "host_ip" in kwargs:
-                return "'host_ip' not set", None
-            if not "host_net" in kwargs:
-                return "'host_net' not set", None
-            if not "host_gateway" in kwargs:
-                return "'host_gateway' not set", None
+        if func == "verify_permissions":
+            errors = []
 
-            ipam_pool = docker.types.IPAMPool(
-                subnet=kwargs['host_net'],
-                # gateway=kwargs['host_gateway']
-            )
-            ipam_config = docker.types.IPAMConfig(
-                pool_configs=[ipam_pool]
-            )    
+            try:
+                subprocess.check_output(["/usr/bin/sudo", "-n", "/sbin/iptables", "-vL"], stderr=subprocess.DEVNULL)     
+            except subprocess.CalledProcessError:
+                errors.append("'sudo' for iptables not set. Add permissions to run this command using 'visudo'")
+                
+            try:
+                subprocess.check_output(["/usr/bin/sudo", "-n", "/usr/bin/ovs-docker"], stderr=subprocess.DEVNULL)     
+            except subprocess.CalledProcessError:
+                errors.append("'sudo' for ovs-docker not set. Add permissions to run this command using 'visudo'")
+
+            try:
+                subprocess.check_output(["docker", "ps"], shell=True, stderr=subprocess.DEVNULL)     
+            except subprocess.CalledProcessError:
+                errors.append("Cannot access Docker. Add this user to the `docker` group and re-login")
+
+            try:
+                subprocess.check_output(["lxc", "list"], shell=True, stderr=subprocess.DEVNULL)     
+            except subprocess.CalledProcessError:
+                errors.append("Cannot access LXD. Add this user to the `lxd` group and re-login")
+
+            if len(errors) > 0:
+                return "\n".join(errors), None
+            else:
+                return None, True
 
             
     def check(self):
@@ -45,6 +60,9 @@ class FakernetInit(BaseModule):
             self.mm.docker.networks.get(NETWORK_NAME)
         except docker.errors.NotFound:
             self.network_needed = True
+
+        
+
         
     
 

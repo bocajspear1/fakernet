@@ -147,5 +147,5 @@ class BaseModule():
         ca_cert = open(ca_cert_path, "w+")
         ca_cert.write(ca_cert_file)
         ca_cert.close()
-        
+
         return None, True

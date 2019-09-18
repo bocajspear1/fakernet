@@ -1,5 +1,6 @@
 import shlex
 import textwrap
+import sys
 
 from prompt_toolkit import PromptSession, prompt, print_formatted_text, HTML 
 from prompt_toolkit.completion import Completer, Completion
@@ -11,43 +12,44 @@ import lib.prompt_builder as prompt_builder
 import tableprint as tp
 
 
-manager = ModuleManager()
-manager.load()
+
 
 base_net = None
 dns_ip = None
 
-# Check for init
-if manager['init'].init_needed:
 
+    # base_net = prompt_builder.prompt_get_network(premessage="Welcome to FakerNet, it appears we need to do some setup...\n\nPlease enter the initial network allocation. The main DNS server will be hosted here.")
 
-    base_net = prompt_builder.prompt_get_network(premessage="Welcome to FakerNet, it appears we need to do some setup...\n\nPlease enter the initial network allocation. The main DNS server will be hosted here.")
+    # err, result = self.mm['netreserve'].run("add_network", net_addr=base_net, description="The central network for Fakernet. Hosts central DNS server and other critical services.")
+    # if err is None:
+    #     done = True
+    #     print("Network: " + base_net)
+    # else:
+    #     print(err)
 
-    err, result = manager['netreserve'].run("add_network", net_addr=base_net, description="The central network for Fakernet. Hosts central DNS server and other critical services.")
-    if err is None:
-        done = True
-        print("Network: " + base_net)
-    else:
-        print(err)
+    # print("\nEnter the IP of the main DNS server. This will be the resolver for your FakerNet instance.")
+    # print("You will need to point all systems to this DNS server for things to work.")
 
-    print("\nEnter the IP of the main DNS server. This will be the resolver for your FakerNet instance.")
-    print("You will need to point all systems to this DNS server for things to work.")
+    # dns_ip = prompt_builder.prompt_get_ip_in_network(base_net)
 
-    dns_ip = prompt_builder.prompt_get_ip_in_network(base_net)
+    # if dns_ip is not None:
+    #     err, result = self.mm['ipreserve'].run("add_ip", ip=dns_ip, description="Central DNS server")
+    #     if err is None:
+    #         done = True
+    #         print("DNS IP: " + dns_ip)
+    #     else:
+    #         print(err)
 
-    if dns_ip is not None:
-        err, result = manager['ipreserve'].run("add_ip", ip=dns_ip, description="Central DNS server")
-        if err is None:
-            done = True
-            print("DNS IP: " + dns_ip)
-        else:
-            print(err)
+import html
+ASCIIART = html.escape("""
+______    _             _   _      _   
+|  ___|  | |           | \ | |    | |  
+| |_ __ _| | _____ _ __|  \| | ___| |_ 
+|  _/ _` | |/ / _ \ '__| . ` |/ _ \ __|
+| || (_| |   <  __/ |  | |\  |  __/ |_ 
+\_| \__,_|_|\_\___|_|  \_| \_/\___|\__|
+""")
 
-    
-
-
-
-modules_loaded = manager.list_modules()
 
 def print_table(data, headers):
     if len(data) == 0:
@@ -136,9 +138,9 @@ class CommandCompleter(Completer):
                 elif len(arg_split) == 2:
                     module_name = arg_split[0]
                     in_function = arg_split[1]
-                    if module_name not in manager.list_modules():
+                    if module_name not in self.mm.list_modules():
                         return
-                    module = manager[module_name]
+                    module = self.mm[module_name]
                     pos = -(document.cursor_position)+len(command)+2+len(module_name)
                     all_entries = list(module.__FUNCS__.keys())
                     all_entries.append("help")
@@ -166,17 +168,33 @@ class CommandCompleter(Completer):
 
 class FakerNetConsole():
 
-    def __init__(self, mm):
-        self.mm = mm
+    def __init__(self):
+
+        self.mm = ModuleManager()
+        self.mm.load()
+
         self.session = PromptSession()
         self.global_vars = {
             "AUTO_ADD": False
         }
         self.completer = CommandCompleter(self.mm, self.global_vars)
 
+        err, _ = self.mm['init'].run("verify_permissions")
+        if err is not None:
+            print_formatted_text(HTML('<ansired>{}</ansired>'.format(err)))
+            sys.exit(1)
+
+        print_formatted_text(HTML('<ansigreen>{}</ansigreen>'.format(ASCIIART)))
+        print_formatted_text(HTML('<skyblue>Internet-in-a-box\n</skyblue>'))
+
+        if self.mm['init'].init_needed:
+            self.setup_prompts()
+
         self.running = True
         self.current_command = None
 
+    def setup_prompts(self):
+        pass
     
     def start(self):
         while self.running:
@@ -296,11 +314,11 @@ class FakerNetConsole():
             return
         
         module_name = args[0]
-        if module_name not in manager.list_modules():
+        if module_name not in self.mm.list_modules():
             print_formatted_text(HTML('<ansired>Error: Invalid module "{}"</ansired>'.format(module_name)))
             return
         
-        module = manager[module_name]
+        module = self.mm[module_name]
         function = args[1]
         # Special function "help" lists all available functions
         if function == "help":
@@ -338,7 +356,7 @@ class FakerNetConsole():
             print_formatted_text(HTML('<ansired>Error: Invalid function "{}"</ansired>'.format(function)))
 
 def main():
-    console = FakerNetConsole(manager)
+    console = FakerNetConsole()
     console.start()
     print('Shutting down console...')
 
