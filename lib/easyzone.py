@@ -337,7 +337,6 @@ def _new_rdata(rectype, *args):
         rd = dns.rdtypes.IN.A.A(dns.rdataclass.IN, dns.rdatatype.A, name)
     elif rectype == 'PTR':
         name = dns.name.Name( args[0].split('.') )
-        print(name)
         rd = dns.rdtypes.ANY.PTR.PTR(dns.rdataclass.IN, dns.rdatatype.PTR, name)
     elif rectype == 'CNAME':
         name = dns.name.Name( args[0].split('.') )

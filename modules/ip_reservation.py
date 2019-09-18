@@ -51,7 +51,6 @@ class IPReservation(BaseModule):
             in_network = False
             for result in results['rows']:
                 if validate.is_ip_in_network(ip, result[1]):
-                    print(ip, result[1])
                     in_network = result[0] 
 
             if in_network is not False:

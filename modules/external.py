@@ -59,7 +59,6 @@ class External(BaseModule):
 
             new_rows = []
             for row in listing['rows']:
-                print(row)
                 if row[3] == "":
                     new_rows.append(row[:-1])
             

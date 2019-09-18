@@ -9,7 +9,7 @@ import requests
 import lib.validate as validate
 from lib.base_module import BaseModule
 
-
+INSTANCE_TEMPLATE = "bepasty-server-{}"
 
 class BePastyServer(BaseModule):
 
@@ -52,8 +52,8 @@ class BePastyServer(BaseModule):
             new_results = []
             for row in results:
                 new_row = list(row)
-                container_name = "bepasty-server-{}".format(row[0])
-                _, status = self.docker_status(container_name)
+
+                _, status = self.docker_status(INSTANCE_TEMPLATE.format(row[0]))
                 new_row.append(status[0])
                 new_row.append(status[1])
                 new_results.append(new_row)
@@ -79,6 +79,11 @@ class BePastyServer(BaseModule):
             if error is not None:
                 return error, None
 
+            # Setup our DNS name
+            err, _ = self.mm['dns'].run("add_host", fqdn=fqdn, ip_addr=server_ip)
+            if err is not None:
+                return err, None
+
              # Add the server to the database
             dbc.execute('INSERT INTO bepasty (server_fqdn, server_ip) VALUES (?, ?)', (fqdn, server_ip))
             self.mm.db.commit()
@@ -97,30 +102,10 @@ class BePastyServer(BaseModule):
             certs_dir = bepasty_data_path + "/certs"
             os.mkdir(certs_dir)
 
-             # Get the key and cert
-            err, (priv_key, cert) = self.mm['minica'].run("generate_host_cert", id=1, fqdn=fqdn)
+            # Setup SSL certificates
+            err, _ = self.ssl_setup(fqdn, certs_dir, "bepasty")
             if err is not None:
                 return err, None
-
-            out_key_path = certs_dir + "/bepasty.key"
-            out_key = open(out_key_path, "w+")
-            out_key.write(priv_key)
-            out_key.close()
-
-            out_cert_path = certs_dir + "/bepasty.crt"
-            out_cert = open(out_cert_path, "w+")
-            out_cert.write(cert)
-            out_cert.close()
-
-            # Write the CA cert
-            err, ca_cert_file = self.mm['minica'].run("get_ca_cert", id=1, type="linux")
-            if err is not None:
-                return err, None
-
-            ca_cert_path = certs_dir + "/fakernet-ca.crt"
-            ca_cert = open(ca_cert_path, "w+")
-            ca_cert.write(ca_cert_file)
-            ca_cert.close()
 
             vols = {
                 certs_dir: {"bind": "/etc/certs", 'mode': 'rw'}
@@ -130,53 +115,47 @@ class BePastyServer(BaseModule):
                 "DOMAIN": fqdn
             }
 
-            container_name = "bepasty-server-{}".format(bepasty_id)
+            container_name = INSTANCE_TEMPLATE.format(bepasty_id)
 
             err, _ = self.docker_create(container_name, vols, environment)
             if err is not None:
                 return err, None
 
-            err, _ = self.run("start_server", id=bepasty_id)
-            if err is not None:
-                return err, None
-
-            err, _ = self.mm['dns'].run("add_host", fqdn=fqdn, ip_addr=server_ip)
-            if err is not None:
-                return err, None
-
-            return None, True
-
+            return self.run("start_server", id=bepasty_id)
         elif func == "remove_server":
             perror, _ = self.validate_params(self.__FUNCS__['remove_server'], kwargs)
             if perror is not None:
                 return perror, None
 
             bepasty_id = kwargs['id']
-            container_name = "bepasty-server-{}".format(bepasty_id)
+            container_name = INSTANCE_TEMPLATE.format(bepasty_id)
 
             # Ignore any shutdown errors, maybe the container was stopped externally
-            error, result = self.run("stop_server", id=bepasty_id)
-            if error is not None:
-                self.print(error)
+            self.run("stop_server", id=bepasty_id)
 
-            dbc.execute("SELECT server_ip FROM bepasty WHERE server_id=?", (bepasty_id,))
+            dbc.execute("SELECT server_ip, server_fqdn FROM bepasty WHERE server_id=?", (bepasty_id,))
             result = dbc.fetchone()
             if not result:
                 return "BePasty server does not exist", None
 
             server_ip = result[0]
-
-            # Remove the container from the database
-            dbc.execute("DELETE FROM bepasty WHERE server_id=?", (bepasty_id,))
-            self.mm.db.commit()
+            fqdn = result[1]
 
             # Deallocate our IP address
             error, _ = self.mm['ipreserve'].run("remove_ip", ip_addr=server_ip)
             if error is not None:
                 return error, None
 
-            return self.docker_delete(container_name)
+            # Remove the host from the DNS server
+            err, _ = self.mm['dns'].run("remove_host", fqdn=fqdn, ip_addr=server_ip)
+            if err is not None:
+                return err, None
 
+            # Remove the container from the database
+            dbc.execute("DELETE FROM bepasty WHERE server_id=?", (bepasty_id,))
+            self.mm.db.commit()
+
+            return self.docker_delete(container_name)
         elif func == "start_server":
             perror, _ = self.validate_params(self.__FUNCS__['start_server'], kwargs)
             if perror is not None:
@@ -188,12 +167,12 @@ class BePastyServer(BaseModule):
             dbc.execute("SELECT server_ip FROM bepasty WHERE server_id=?", (bepasty_id,))
             result = dbc.fetchone()
             if not result:
-                return "Bepasty does not exist", None
+                return "Bepasty server does not exist", None
 
             server_ip = result[0]
             
             # Start the Docker container
-            container_name = "bepasty-server-{}".format(bepasty_id)
+            container_name = INSTANCE_TEMPLATE.format(bepasty_id)
 
             return self.docker_start(container_name, server_ip)
         elif func == "stop_server":
@@ -202,7 +181,7 @@ class BePastyServer(BaseModule):
                 return perror, None
 
             bepasty_id = kwargs['id']
-            container_name = "bepasty-server-{}".format(bepasty_id)
+            container_name = INSTANCE_TEMPLATE.format(bepasty_id)
 
             # Check if the server is running
             _, status = self.docker_status(container_name)

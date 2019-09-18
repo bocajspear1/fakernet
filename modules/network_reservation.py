@@ -144,7 +144,6 @@ class NetReservation(BaseModule):
             for network in results:
                 if validate.is_ip_in_network(ip, network[1]):
                     return None, network[3]
-            print(results)
             
             return "Could not find network", None
         elif func == "get_ip_network":

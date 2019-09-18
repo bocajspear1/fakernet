@@ -10,7 +10,6 @@ import lib.validate as validate
 
 from lib.base_module import BaseModule
 
-DNS_IMAGE_NAME = "fn-dns-server"
 DNS_BASE_DIR = "{}/work/dns".format(os.getcwd())
 
 ZONE_CONFIG_TEMPLATE = """zone "$ZONE" IN {
@@ -18,6 +17,8 @@ ZONE_CONFIG_TEMPLATE = """zone "$ZONE" IN {
     file "$PATH";
 };
 """
+
+INSTANCE_TEMPLATE = "dns-server-{}"
 
 class DNSServer(BaseModule):
 
@@ -51,6 +52,13 @@ class DNSServer(BaseModule):
             "fqdn": "TEXT",
             "value": "TEXT",
             "autocreate": "BOOLEAN"
+        },
+        "smart_remove_record": {
+            "_desc": "Add a record to a DNS server, detecting server and zone",
+            "direction": ['fwd', 'rev'],
+            "type": "TEXT",
+            "fqdn": "TEXT",
+            "value": "TEXT"
         },
         "add_record": {
             "_desc": "Add a record to a DNS server",
@@ -111,6 +119,7 @@ class DNSServer(BaseModule):
     __SHORTNAME__  = "dns"
     __DESC__ = "Creates and manages BIND DNS servers"
     __AUTHOR__ = "Jacob Hartman"
+    __SERVER_IMAGE_NAME__ = "fn-dns-server"
 
     def _get_dns_server(self, fqdn):
         dbc = self.mm.db.cursor()
@@ -296,7 +305,7 @@ class DNSServer(BaseModule):
 
     def _rndc_reload(self, dns_server_id):
         try:
-            container = self.mm.docker.containers.get("dns-server-{}".format(dns_server_id))
+            container = self.mm.docker.containers.get(INSTANCE_TEMPLATE.format(dns_server_id))
             code, output = container.exec_run("rndc reload")
             if code != 0:
                 return "'rndc reload' failed", None
@@ -315,7 +324,7 @@ class DNSServer(BaseModule):
             for row in results:
                 new_row = list(row)
                 
-                _, status = self.docker_status(row[0])
+                _, status = self.docker_status(INSTANCE_TEMPLATE.format(row[0]))
                 new_row.append(status[0])
                 new_row.append(status[1])
                 
@@ -348,15 +357,15 @@ class DNSServer(BaseModule):
                 return perror, None
 
             dns_server_id = kwargs['id']
-            container_name = "dns-server-{}".format(dns_server_id)
-
-            # Ignore any shutdown errors, maybe the container was stopped externally
-            _, result = self.run("stop_server", id=dns_server_id)
+            container_name = INSTANCE_TEMPLATE.format(dns_server_id)
 
             dbc.execute("SELECT server_ip FROM dns_server WHERE server_id=?", (dns_server_id,))
             result = dbc.fetchone()
             if not result:
                 return "DNS server does not exist", None
+
+            # Ignore any shutdown errors, maybe the container was stopped externally
+            self.run("stop_server", id=dns_server_id)
 
             server_ip = result[0]
             
@@ -369,16 +378,7 @@ class DNSServer(BaseModule):
             dbc.execute("DELETE FROM dns_server WHERE server_id=?", (dns_server_id,))
             self.mm.db.commit()
 
-            # Remove the container from Docker
-            try:
-                container = self.mm.docker.containers.get(container_name)
-                container.remove()
-            except docker.errors.NotFound:
-                return "DNS server not found in Docker", None
-            except 	docker.errors.APIError:
-                return "Could not remove DNS server in Docker", None
-
-            return None, True
+            return self.docker_delete(container_name)
         elif func == "add_server":
             perror, _ = self.validate_params(self.__FUNCS__['add_server'], kwargs)
             if perror is not None:
@@ -407,6 +407,7 @@ class DNSServer(BaseModule):
             self.mm.db.commit()
 
             dns_server_id = dbc.lastrowid
+            container_name = INSTANCE_TEMPLATE.format(dns_server_id)
 
             # Setup config directories
             dns_config_path = "{}/{}".format(DNS_BASE_DIR, dns_server_id)
@@ -427,8 +428,12 @@ class DNSServer(BaseModule):
                 dns_config_path: {"bind": "/etc/bind", 'mode': 'rw'}
             }
 
-            # Create the server
-            self.mm.docker.containers.create(DNS_IMAGE_NAME, volumes=vols, detach=True, name=container_name, network_mode="none")
+            environment = {}
+
+            # Create the Docker container
+            err, _ = self.docker_create(container_name, vols, environment)
+            if err is not None:
+                return err, None
 
             # Start the server
             error, result = self.run("start_server", id=dns_server_id)
@@ -491,6 +496,42 @@ class DNSServer(BaseModule):
             name = '.'.join(fqdn_split[:-1])
 
             return self.run('add_record', id=dns_server_id, zone=zone, direction=direction, type=record_type, name=name, value=value)
+        elif func == "smart_remove_record":
+            perror, _ = self.validate_params(self.__FUNCS__['smart_remove_record'], kwargs)
+            if perror is not None:
+                return perror, None
+
+            fqdn = kwargs['fqdn']
+            direction = kwargs['direction']
+            record_type = kwargs['type']
+            value = kwargs['value']
+
+            found = False
+            counter = 0
+
+            fqdn_split = fqdn.split(".")
+
+            while found == False and counter < len(fqdn_split):
+                search_domain = '.'.join(fqdn_split[counter:])
+                dns_server_id = self._get_dns_server(search_domain)
+                if dns_server_id is not None:
+                    found = True
+                counter += 1
+
+            if found == False:
+                return "Could not find a parent domain for {}".format(fqdn), None 
+
+            first, zone = self._split_fqdn(fqdn)
+
+            dns_config_path = "{}/{}".format(DNS_BASE_DIR, dns_server_id)
+            zone_path = "{}/zones/{}.{}".format(dns_config_path, zone, direction)
+
+            if not os.path.exists(zone_path):
+                return "Zone for FQDN {} in server {} not found".format(fqdn, dns_server_id), None
+
+            name = '.'.join(fqdn_split[:-1])
+
+            return self.run('remove_record', id=dns_server_id, zone=zone, direction=direction, type=record_type, name=name, value=value)
         elif func == "add_record":
             perror, _ = self.validate_params(self.__FUNCS__['add_record'], kwargs)
             if perror is not None:
@@ -549,7 +590,7 @@ class DNSServer(BaseModule):
             zone.save(autoserial=True)
 
             try:
-                container = self.mm.docker.containers.get("dns-server-{}".format(dns_server_id))
+                container = self.mm.docker.containers.get(INSTANCE_TEMPLATE.format(dns_server_id))
                 code, output = container.exec_run("rndc reload")
                 if code != 0:
                     return "'rndc reload' failed", None
@@ -582,45 +623,18 @@ class DNSServer(BaseModule):
             if not result:
                 return "DNS server does not exist", None
             
-            container_name = "dns-server-{}".format(dns_server_id)
+            container_name = INSTANCE_TEMPLATE.format(dns_server_id)
             server_ip = result[0]
 
-            # Get the server
-            try:
-                container = self.mm.docker.containers.get(container_name)
-                container.start()
-            except docker.errors.NotFound:
-                return "DNS server not found in Docker", None
-            except 	docker.errors.APIError:
-                return "Could not start DNS server in Docker", None
-
-            err, switch = self.mm['netreserve'].run("get_ip_switch", ip_addr=server_ip)
-            if err:
-                return err, None
-
-            err, network = self.mm['netreserve'].run("get_ip_network", ip_addr=server_ip)
-            if err:
-                return err, None
-
-            mask = network.prefixlen
-            gateway = str(list(network.hosts())[0])
-
-            # Ensure no existing interface remains
-            self.ovs_remove_ports(container_name, switch)
-            
-            err, result = self.ovs_set_ip(container_name, switch, "eth0", "{}/{}".format(server_ip, mask), gateway)
-
-            if err is not None:
-                return err, None
-
-            return None, True
+            # Start the Docker container
+            return self.docker_start(container_name, server_ip)
         elif func == "stop_server":
             perror, _ = self.validate_params(self.__FUNCS__['stop_server'], kwargs)
             if perror is not None:
                 return perror, None
 
             dns_server_id = kwargs['id']
-            container_name = "dns-server-{}".format(dns_server_id)
+            container_name = INSTANCE_TEMPLATE.format(dns_server_id)
 
             _, status = self.docker_status(container_name)
             if status is not None and status[1] != "running":
@@ -634,22 +648,8 @@ class DNSServer(BaseModule):
 
             server_ip = result[0]
             
-
-            # Remove port from switch
-            err, switch = self.mm['netreserve'].run("get_ip_switch", ip_addr=server_ip)
-            if err:
-                return err, None
-
-            self.ovs_remove_ports(container_name, switch)
-
-            # Stop container in Docker
-            try:
-                container = self.mm.docker.containers.get("dns-server-{}".format(dns_server_id))
-                container.stop()
-            except docker.errors.NotFound:
-                return "DNS server not found in Docker", None
-
-            return None, True
+            # Stop the container
+            return self.docker_stop(container_name, server_ip)
         elif func == "list_forwarders":
             perror, _ = self.validate_params(self.__FUNCS__['list_forwarders'], kwargs)
             if perror is not None:
@@ -746,6 +746,7 @@ class DNSServer(BaseModule):
     
     def build(self):
         self.print("Building DNS server image...")
-        self.mm.docker.images.build(path="./docker-images/dns/", tag=DNS_IMAGE_NAME, rm=True)
+        _, logs = self.mm.docker.images.build(path="./docker-images/dns/", tag=self.__SERVER_IMAGE_NAME__, rm=True)
+        # self.print(logs)
 
 __MODULE__ = DNSServer

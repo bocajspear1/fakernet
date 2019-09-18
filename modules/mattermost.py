@@ -9,8 +9,9 @@ import requests
 import lib.validate as validate
 from lib.base_module import BaseModule
 
-SERVER_IMAGE_NAME = "mattermost"
 SERVER_BASE_DIR = "{}/work/mattermost".format(os.getcwd())
+
+INSTANCE_TEMPLATE = "mattermost-server-{}"
 
 class MattermostServer(BaseModule):
 
@@ -43,6 +44,7 @@ class MattermostServer(BaseModule):
     __SHORTNAME__ = "mattermost"
     __DESC__ = "Mattermost server, similar to Slack"
     __AUTHOR__ = "Jacob Hartman"
+    __SERVER_IMAGE_NAME__ = "mattermost"
 
     def run(self, func, **kwargs):
         dbc = self.mm.db.cursor()
@@ -53,7 +55,7 @@ class MattermostServer(BaseModule):
             for row in results:
                 new_row = list(row)
                 
-                _, status = self.docker_status(row[0])
+                _, status = self.docker_status(INSTANCE_TEMPLATE.format(row[0]))
                 new_row.append(status[0])
                 new_row.append(status[1])
                 
@@ -61,7 +63,7 @@ class MattermostServer(BaseModule):
 
             return None, {
                 "rows": new_results,
-                "columns": ['ID', "server_ip", 'description', 'domain', 'built', 'status']
+                "columns": ['ID', "fqdn", "server_ip", 'built', 'status']
             } 
         elif func == "remove_server":
             perror, _ = self.validate_params(self.__FUNCS__['remove_server'], kwargs)
@@ -77,21 +79,10 @@ class MattermostServer(BaseModule):
             
             server_ip = result[1]
             fqdn = result[0]
-            container_name = "mattermost-server-{}".format(mattermost_id)
+            container_name = INSTANCE_TEMPLATE.format(mattermost_id)
 
             # Try to stop the server first, ignore errors as the container may have crashed or been killed externally
-            self.run("stop_server", id=mattermost_id)
-
-            dbc.execute("DELETE FROM mattermost WHERE server_id=?", (mattermost_id,))
-            self.mm.db.commit()
-
-            # Get and remove container in Docker
-            try:
-                container = self.mm.docker.containers.get(container_name)
-                container.remove()
-            except docker.errors.NotFound:
-                # return "Mattermost server not found in Docker", None
-                pass
+            self.docker_stop(container_name, server_ip)
 
             # Remove the IP reservation
             error, _ = self.mm['ipreserve'].run("remove_ip", ip_addr=server_ip)
@@ -103,7 +94,10 @@ class MattermostServer(BaseModule):
             if err is not None:
                 return err, None
 
-            return None, True
+            dbc.execute("DELETE FROM mattermost WHERE server_id=?", (mattermost_id,))
+            self.mm.db.commit()
+
+            return self.docker_delete(container_name)
         elif func == "add_server":
             perror, _ = self.validate_params(self.__FUNCS__['add_server'], kwargs)
             if perror is not None:
@@ -112,7 +106,7 @@ class MattermostServer(BaseModule):
             fqdn = kwargs['fqdn']
             server_ip = kwargs['ip_addr']
 
-            # Check a server of this fqdn doesn't already exist
+            # Check if a server of this fqdn doesn't already exist
             dbc.execute("SELECT server_id FROM mattermost WHERE server_fqdn=?", (fqdn,))
             if dbc.fetchone():
                 return "A Mattermost server already exists of that FQDN or mail domain", None
@@ -133,7 +127,7 @@ class MattermostServer(BaseModule):
 
             # Our new Mattermost server id
             mattermost_id = dbc.lastrowid
-            container_name = "mattermost-server-{}".format(mattermost_id)
+            container_name = INSTANCE_TEMPLATE.format(mattermost_id)
 
             # Create the working directory for the server
             mattermost_data_path = "{}/{}".format(SERVER_BASE_DIR, mattermost_id)
@@ -147,29 +141,9 @@ class MattermostServer(BaseModule):
             os.mkdir(certs_dir)
 
             # Get the key and cert
-            err, (priv_key, cert) = self.mm['minica'].run("generate_host_cert", id=1, fqdn=fqdn)
+            err, _ = self.ssl_setup(fqdn, certs_dir, "alpinewebdav")
             if err is not None:
                 return err, None
-
-            out_key_path = certs_dir + "/mattermost.key"
-            out_key = open(out_key_path, "w+")
-            out_key.write(priv_key)
-            out_key.close()
-
-            out_cert_path = certs_dir + "/mattermost.crt"
-            out_cert = open(out_cert_path, "w+")
-            out_cert.write(cert)
-            out_cert.close()
-
-            # Write the CA cert
-            err, ca_cert_file = self.mm['minica'].run("get_ca_cert", id=1, type="linux")
-            if err is not None:
-                return err, None
-
-            ca_cert_path = certs_dir + "/fakernet-ca.crt"
-            ca_cert = open(ca_cert_path, "w+")
-            ca_cert.write(ca_cert_file)
-            ca_cert.close()
 
             vols = {
                 certs_dir: {"bind": "/etc/certs", 'mode': 'rw'}
@@ -179,14 +153,12 @@ class MattermostServer(BaseModule):
                 "DOMAIN": fqdn
             }
 
-            error, server_data = self.mm['dns'].run("get_server", id=1)
-            if error is not None:
-                return "No base DNS server has been created", None    
-
-            self.mm.docker.containers.create(SERVER_IMAGE_NAME, volumes=vols, environment=environment, detach=True, name=container_name, network_mode="none", dns=[server_data['server_ip']])
-
+            # Create the Docker container
+            err, _ = self.docker_create(container_name, vols, environment)
+            if err is not None:
+                return err, None
+            
             return self.run("start_server", id=mattermost_id)
-
         elif func == "start_server":
             perror, _ = self.validate_params(self.__FUNCS__['start_server'], kwargs)
             if perror is not None:
@@ -200,41 +172,11 @@ class MattermostServer(BaseModule):
             if not result:
                 return "DNS server does not exist", None
             
-            container_name = "mattermost-server-{}".format(mattermost_server_id)
+            container_name = INSTANCE_TEMPLATE.format(mattermost_server_id)
             server_ip = result[0]
 
-            # Get the server and start the Docker image
-            try:
-                container = self.mm.docker.containers.get(container_name)
-                container.start()
-            except docker.errors.NotFound:
-                return "DNS server not found in Docker", None
-            except 	docker.errors.APIError:
-                return "Could not start DNS server in Docker", None
-
-            # Get the switch for the network the IP is in
-            err, switch = self.mm['netreserve'].run("get_ip_switch", ip_addr=server_ip)
-            if err:
-                return err, None
-
-            # Get the network for the IP, and default to using the first IP as the default gateway
-            err, network = self.mm['netreserve'].run("get_ip_network", ip_addr=server_ip)
-            if err:
-                return err, None
-
-            mask = network.prefixlen
-            gateway = str(list(network.hosts())[0])
-
-            # Ensure no existing interface remains
-            self.ovs_remove_ports(container_name, switch)
-            
-            # Configure eth0 interface
-            err, result = self.ovs_set_ip(container_name, switch, "eth0", "{}/{}".format(server_ip, mask), gateway)
-            if err is not None:
-                return err, None
-            
-
-            return None, True
+            # Start the Docker container
+            return self.docker_start(container_name, server_ip)
         elif func == "stop_server":
             perror, _ = self.validate_params(self.__FUNCS__['stop_server'], kwargs)
             if perror is not None:
@@ -243,32 +185,16 @@ class MattermostServer(BaseModule):
             mattermost_id = kwargs['id']
 
             # Get container data from the database
-            dbc.execute("SELECT server_fqdn, server_ip FROM mattermost WHERE server_id=?", (mattermost_id,))
+            dbc.execute("SELECT server_ip FROM mattermost WHERE server_id=?", (mattermost_id,))
             result = dbc.fetchone()
             if not result:
                 return "Mattermost server does not exist", None
             
-            server_ip = result[1]
-            fqdn = result[0]
-            container_name = "mattermost-server-{}".format(mattermost_id)
+            server_ip = result[0]
+            container_name = INSTANCE_TEMPLATE.format(mattermost_id)
 
-            # Remove the port from the image, it needs to be set each time
-            err, switch = self.mm['netreserve'].run("get_ip_switch", ip_addr=server_ip)
-            if err:
-                return err, None
-
-            self.ovs_remove_ports(container_name, switch)
-
-            # Get and stop the container
-            try:
-                container = self.mm.docker.containers.get(container_name)
-                container.stop()
-            except docker.errors.NotFound:
-                return "Mattermost server not found in Docker", None
-            except docker.errors.APIError:
-                return "Mattermost server could not be stopped in Docker", None
-
-            return None, True
+           # Stop the container
+            return self.docker_stop(container_name, server_ip)
         else:
             return "Invalid function '{}.{}'".format(self.__SHORTNAME__, func), None
 
@@ -286,7 +212,7 @@ class MattermostServer(BaseModule):
     
     def build(self):
         self.print("Building Mattermost server image...")
-        _, logs = self.mm.docker.images.build(path="./docker-images/mattermost/", tag=SERVER_IMAGE_NAME, rm=True)
-        print(logs)
+        _, logs = self.mm.docker.images.build(path="./docker-images/mattermost/", tag=self.__SERVER_IMAGE_NAME__, rm=True)
+        # self.print(logs)
 
 __MODULE__ = MattermostServer

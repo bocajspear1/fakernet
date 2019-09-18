@@ -71,9 +71,9 @@ class BaseModule():
             container = self.mm.docker.containers.get(container_name)
             container.remove()
         except docker.errors.NotFound:
-            return "Bepasty server not found in Docker", None
+            return "Server not found in Docker", None
         except docker.errors.APIError:
-            return "Could not remove Bepasty server in Docker", None
+            return "Could not remove server in Docker", None
         
         return None, True
 

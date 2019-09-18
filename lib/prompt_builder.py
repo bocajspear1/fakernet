@@ -4,9 +4,7 @@ import lib.validate as validate
 from prompt_toolkit import prompt
 
 
-def prompt_get_ip_addr(prompt_text=">", premessage=None):
-    if premessage is not None:
-        print(premessage+"\n")
+def prompt_get_ip_addr(prompt_text=">"):
         
     done = False
     while not done:
@@ -21,9 +19,8 @@ def prompt_get_ip_addr(prompt_text=">", premessage=None):
             print("Invalid IP")
 
 
-def prompt_get_ip_in_network(network, prompt_text=">", premessage=None):
-    if premessage is not None:
-        print(premessage+"\n")
+def prompt_get_ip_in_network(network, prompt_text=">"):
+    
     done = False
     while not done:
         ip = prompt_get_ip_addr(prompt_text)
@@ -35,9 +32,7 @@ def prompt_get_ip_in_network(network, prompt_text=">", premessage=None):
         else:
             print("IP not in network " + str(network))
 
-def prompt_get_network(prompt_text=">", premessage=None):
-    if premessage is not None:
-        print(premessage+"\n")
+def prompt_get_network(prompt_text=">"):
     
     done = False
     while not done:

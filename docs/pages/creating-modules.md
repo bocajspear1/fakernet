@@ -60,3 +60,35 @@ This is the name of the module used in the console and when other modules refer 
 ## `run` Function
 
 This function is the main function of the module and contains the primary actions and activities of the module. A `if/elif/else` determines the function from the first parameters.
+
+### Common Structure
+
+#### `add_server`
+
+1. Check server already exists
+2. Allocate IP address
+3. Allocate DNS name
+4. Insert new server into database
+5. Setup directories
+6. Create Docker image (`docker_create`)
+7. Start the server (`self.run("start_server", ...)`)
+
+#### `remove_server`
+
+1. Get server data
+2. Stop the container (`self.run("stop_server", ...)`)
+3. Remove IP allocation
+4. Remove DNS allocation
+5. Delete from database
+6. Create Docker image (`docker_delete`)
+
+#### `start_server`
+
+1. Get server IP from database
+2. Start Docker image (`docker_start`)
+
+#### `stop_server`
+
+1. Check if container is running
+2. Get server IP from database
+3. Stop Docker image (`docker_stop`)

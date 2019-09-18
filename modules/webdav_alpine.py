@@ -9,7 +9,7 @@ import requests
 import lib.validate as validate
 from lib.base_module import BaseModule
 
-SERVER_IMAGE_NAME = "alpinewebdav"
+INSTANCE_TEMPLATE = "alpinewebdav-server-{}"
 
 class AlpineWebDAVServer(BaseModule):
 
@@ -42,11 +42,26 @@ class AlpineWebDAVServer(BaseModule):
     __SHORTNAME__  = "webdavalpine"
     __DESC__ = "An Alpine Linux-based WebDAV Apache Server"
     __AUTHOR__ = "Jacob Hartman"
+    __SERVER_IMAGE_NAME__ = "alpinewebdav"
 
     def run(self, func, **kwargs) :
         dbc = self.mm.db.cursor()
-        if func == "viewall":
-            pass
+        if func == "list":
+            dbc.execute("SELECT * FROM alpinewebdav;") 
+            results = dbc.fetchall()
+            new_results = []
+            for row in results:
+                new_row = list(row)
+                
+                _, status = self.docker_status(INSTANCE_TEMPLATE.format(row[0]))
+                new_row.append(status[0])
+                new_row.append(status[1])
+                new_results.append(new_row)
+
+            return None, {
+                "rows": new_results,
+                "columns": ['ID', "server_fqdn", "server_ip", 'built', 'status']
+            }
         elif func == "add_server":
             perror, _ = self.validate_params(self.__FUNCS__['add_server'], kwargs)
             if perror is not None:
@@ -63,6 +78,11 @@ class AlpineWebDAVServer(BaseModule):
             error, _ = self.mm['ipreserve'].run("add_ip", ip_addr=server_ip, description="WebDAV Server: {}".format(fqdn))
             if error is not None:
                 return error, None
+
+            # Allocate our DNS name
+            err, _ = self.mm['dns'].run("add_host", fqdn=fqdn, ip_addr=server_ip)
+            if err is not None:
+                return err, None
 
              # Add the server to the database
             dbc.execute('INSERT INTO alpinewebdav (server_fqdn, server_ip) VALUES (?, ?)', (fqdn, server_ip))
@@ -84,80 +104,12 @@ class AlpineWebDAVServer(BaseModule):
             data_dir = alpinewebdav_data_path + "/webdav"
             os.mkdir(data_dir)
 
-            err, _ = self.ssl_setup(fqdn, certs_dir,"alpinewebdav")
+            # Setup SSL certificates
+            err, _ = self.ssl_setup(fqdn, certs_dir, "alpinewebdav")
             if err is not None:
                 return err, None
 
-            err, _ = self.run("start_server", id=alpinewebdav_id)
-            if err is not None:
-                return err, None
-
-            err, _ = self.mm['dns'].run("add_host", fqdn=fqdn, ip_addr=server_ip)
-            if err is not None:
-                return err, None
-
-        elif func == "remove_server":
-            perror, _ = self.validate_params(self.__FUNCS__['remove_server'], kwargs)
-            if perror is not None:
-                return perror, None
-
-            alpinewebdav_id = kwargs['id']
-            container_name = "alpinewebdav-server-{}".format(alpinewebdav_id)
-
-            # Ignore any shutdown errors, maybe the container was stopped externally
-            error, result = self.run("stop_server", id=alpinewebdav_id)
-            if error is not None:
-                self.print(error)
-
-            dbc.execute("SELECT server_ip FROM alpinewebdav WHERE server_id=?", (alpinewebdav_id,))
-            result = dbc.fetchone()
-            if not result:
-                return "WebDAV server does not exist", None
-
-            server_ip = result[0]
-
-            # Remove the container from the database
-            dbc.execute("DELETE FROM alpinewebdav WHERE server_id=?", (alpinewebdav_id,))
-            self.mm.db.commit()
-
-            # Deallocate our IP address
-            error, _ = self.mm['ipreserve'].run("remove_ip", ip_addr=server_ip)
-            if error is not None:
-                return error, None
-
-            # Remove the container from Docker
-            try:
-                container = self.mm.docker.containers.get(container_name)
-                container.remove()
-            except docker.errors.NotFound:
-                return "WebDAV server not found in Docker", None
-            except docker.errors.APIError:
-                return "Could not remove WebDAV server in Docker", None
-
-            return None, True
-
-        elif func == "start_server":
-            perror, _ = self.validate_params(self.__FUNCS__['start_server'], kwargs)
-            if perror is not None:
-                return perror, None
-
-            alpinewebdav_id = kwargs['id']
-
-            # Get server ip from database
-            dbc.execute("SELECT server_ip, server_fqdn FROM alpinewebdav WHERE server_id=?", (alpinewebdav_id,))
-            result = dbc.fetchone()
-            if not result:
-                return "WebDAV does not exist", None
-
-            server_ip = result[0]
-            fqdn = result[1]
-            
-            # Start the Docker container
-            container_name = "alpinewebdav-server-{}".format(alpinewebdav_id)
-
-            alpinewebdav_data_path = "{}/{}".format(self.get_working_dir(), alpinewebdav_id)
-            certs_dir = alpinewebdav_data_path + "/certs"
-            data_dir = alpinewebdav_data_path + "/webdav"
+            container_name = INSTANCE_TEMPLATE.format(alpinewebdav_id)
 
             vols = {
                 certs_dir: {"bind": "/etc/certs", 'mode': 'rw'},
@@ -168,38 +120,71 @@ class AlpineWebDAVServer(BaseModule):
                 "DOMAIN": fqdn
             }
 
-            # Get the DNS server
-            error, server_data = self.mm['dns'].run("get_server", id=1)
-            if error is not None:
-                return "No base DNS server has been created", None    
-
-            # Start the Docker container with all our options
-            self.mm.docker.containers.run(SERVER_IMAGE_NAME, volumes=vols, environment=environment, detach=True, name=container_name, network_mode="none", dns=[server_data['server_ip']])
-
-            # Configure networking
-            err, switch = self.mm['netreserve'].run("get_ip_switch", ip_addr=server_ip)
-            if err:
-                return err, None
-
-            err, network = self.mm['netreserve'].run("get_ip_network", ip_addr=server_ip)
-            if err:
-                return err, None
-            
-            mask = network.prefixlen
-            gateway = str(list(network.hosts())[0])
-
-            err, _ = self.ovs_set_ip(container_name, switch, "eth0", "{}/{}".format(server_ip, mask), gateway)
+            # Create the Docker container
+            err, _ = self.docker_create(container_name, vols, environment)
             if err is not None:
                 return err, None
 
-            return None, True
+            return self.run("start_server", id=alpinewebdav_id)
+        elif func == "remove_server":
+            perror, _ = self.validate_params(self.__FUNCS__['remove_server'], kwargs)
+            if perror is not None:
+                return perror, None
+
+            alpinewebdav_id = kwargs['id']
+            container_name = INSTANCE_TEMPLATE.format(alpinewebdav_id)
+
+            dbc.execute("SELECT server_ip, server_fqdn FROM alpinewebdav WHERE server_id=?", (alpinewebdav_id,))
+            result = dbc.fetchone()
+            if not result:
+                return "WebDAV server does not exist", None
+
+            # Ignore any shutdown errors, maybe the container was stopped externally
+            self.run("stop_server", id=alpinewebdav_id)
+
+            server_ip = result[0]
+            fqdn = result[1]
+
+            # Deallocate our IP address
+            error, _ = self.mm['ipreserve'].run("remove_ip", ip_addr=server_ip)
+            if error is not None:
+                return error, None
+
+            # Remove the host from the DNS server
+            err, _ = self.mm['dns'].run("remove_host", fqdn=fqdn, ip_addr=server_ip)
+            if err is not None:
+                return err, None
+
+            # Remove the container from the database
+            dbc.execute("DELETE FROM alpinewebdav WHERE server_id=?", (alpinewebdav_id,))
+            self.mm.db.commit()
+
+            return self.docker_delete(container_name)
+        elif func == "start_server":
+            perror, _ = self.validate_params(self.__FUNCS__['start_server'], kwargs)
+            if perror is not None:
+                return perror, None
+
+            alpinewebdav_id = kwargs['id']
+
+            # Get server ip from database
+            dbc.execute("SELECT server_ip FROM alpinewebdav WHERE server_id=?", (alpinewebdav_id,))
+            result = dbc.fetchone()
+            if not result:
+                return "WebDAV does not exist", None
+
+            server_ip = result[0]
+            container_name = INSTANCE_TEMPLATE.format(alpinewebdav_id)
+            
+            # Start the Docker container
+            return self.docker_start(container_name, server_ip)
         elif func == "stop_server":
             perror, _ = self.validate_params(self.__FUNCS__['stop_server'], kwargs)
             if perror is not None:
                 return perror, None
 
             alpinewebdav_id = kwargs['id']
-            container_name = "alpinewebdav-server-{}".format(alpinewebdav_id)
+            container_name = INSTANCE_TEMPLATE.format(alpinewebdav_id)
 
             # Check if the server is running
             _, status = self.docker_status(container_name)
@@ -214,8 +199,8 @@ class AlpineWebDAVServer(BaseModule):
 
             server_ip = result[0]
 
+            # Stop the container
             return self.docker_stop(container_name, server_ip)
-
         else:
             return "Invalid function '{}.{}'".format(self.__SHORTNAME__, func), None
 
@@ -232,6 +217,6 @@ class AlpineWebDAVServer(BaseModule):
     
     def build(self):
         self.print("Building Alpine WebDAV server image...")
-        self.mm.docker.images.build(path="./docker-images/webdav_alpine/", tag=SERVER_IMAGE_NAME, rm=True)
+        self.mm.docker.images.build(path="./docker-images/webdav_alpine/", tag=self.__SERVER_IMAGE_NAME__, rm=True)
 
 __MODULE__ = AlpineWebDAVServer

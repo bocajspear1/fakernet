@@ -85,17 +85,9 @@ class MiniCAServer(BaseModule):
             
             server_ip = result[1]
             fqdn = result[0]
-
-            err, switch = self.mm['netreserve'].run("get_ip_switch", ip_addr=server_ip)
-            if err:
-                return err, None
-
-            dbc.execute("DELETE FROM minica_server WHERE server_id=?", (minica_server_id,))
-            self.mm.db.commit()
-
             container_name = INSTANCE_TEMPLATE.format(minica_server_id)
 
-            self.docker_stop(container_name, server_ip)
+            self.run("stop_server", id=minica_server_id)
 
             # Remove the IP allocation
             error, _ = self.mm['ipreserve'].run("remove_ip", ip_addr=server_ip)
@@ -106,6 +98,11 @@ class MiniCAServer(BaseModule):
             err, _ = self.mm['dns'].run("remove_host", fqdn=fqdn, ip_addr=server_ip)
             if err is not None:
                 return err, None
+
+            dbc.execute("DELETE FROM minica_server WHERE server_id=?", (minica_server_id,))
+            self.mm.db.commit()
+
+            self.docker_stop(container_name, server_ip)
 
             return None, True
         elif func == "add_server":
@@ -125,12 +122,17 @@ class MiniCAServer(BaseModule):
             if error is not None:
                 return error, None
 
+            # Configure the DNS name
+            err, _ = self.mm['dns'].run("add_host", fqdn=fqdn, ip_addr=server_ip)
+            if err is not None:
+                return err, None
+
             dbc.execute('INSERT INTO minica_server (server_fqdn, server_ip) VALUES (?, ?)', (fqdn, server_ip))
             self.mm.db.commit()
 
             minica_server_id = dbc.lastrowid
 
-            # Create the workign directory for the server
+            # Create the working directory for the server
             ca_data_path = "{}/{}".format(CA_BASE_DIR, minica_server_id)
 
             if os.path.exists(ca_data_path):
@@ -155,16 +157,7 @@ class MiniCAServer(BaseModule):
             if err is not None:
                 return err, None
             
-            err, _ = self.run("start_server", id=minica_server_id)
-            if err is not None:
-                return err, None
-
-            # Configure the DNS name
-            err, _ = self.mm['dns'].run("add_host", fqdn=fqdn, ip_addr=server_ip)
-            if err is not None:
-                return err, None
-
-            return None, True
+            return self.run("start_server", id=minica_server_id)
         elif func == "start_server":
             perror, _ = self.validate_params(self.__FUNCS__['start_server'], kwargs)
             if perror is not None:

@@ -11,7 +11,7 @@ from lib.base_module import BaseModule
 
 
 SERVER_BASE_DIR = "{}/work/simplemail".format(os.getcwd())
-
+INSTANCE_TEMPLATE = "simplemail-server-{}"
 
 class SimpleMailServer(BaseModule):
 
@@ -55,7 +55,7 @@ class SimpleMailServer(BaseModule):
             new_results = []
             for row in results:
                 new_row = list(row)
-                container_name = "simplemail-server-{}".format(row[0])
+                container_name = INSTANCE_TEMPLATE.format(row[0])
                 _, status = self.docker_status(container_name)
                 new_row.append(status[0])
                 new_row.append(status[1])
@@ -72,20 +72,18 @@ class SimpleMailServer(BaseModule):
             
             simplemail_id = kwargs['id']
 
-            dbc.execute("SELECT server_fqdn, server_ip FROM simplemail WHERE server_id=?", (simplemail_id,))
+            dbc.execute("SELECT server_fqdn, server_ip, mail_domain FROM simplemail WHERE server_id=?", (simplemail_id,))
             result = dbc.fetchone()
             if not result:
                 return "SimpleMail server does not exist", None
             
             server_ip = result[1]
             fqdn = result[0]
+            mail_domain = result[2]
 
-            dbc.execute("DELETE FROM simplemail WHERE server_id=?", (simplemail_id,))
-            self.mm.db.commit()
+            container_name = INSTANCE_TEMPLATE.format(simplemail_id)
 
-            container_name = "simplemail-server-{}".format(simplemail_id)
-
-            self.docker_stop(container_name, server_ip)
+            self.run("stop_server", id=simplemail_id)
 
             # Remove the IP allocation
             error, _ = self.mm['ipreserve'].run("remove_ip", ip_addr=server_ip)
@@ -96,6 +94,17 @@ class SimpleMailServer(BaseModule):
             err, _ = self.mm['dns'].run("remove_host", fqdn=fqdn, ip_addr=server_ip)
             if err is not None:
                 return err, None
+
+            # Remove MX record from DNS server
+            mx_value = fqdn
+            if not mx_value.endswith("."):
+                mx_value += "."
+            err, _ = self.mm['dns'].run("smart_remove_record", fqdn=mail_domain, type="MX", direction="fwd", value=(10, mx_value))
+            if err is not None:
+                return err, None
+
+            dbc.execute("DELETE FROM simplemail WHERE server_id=?", (simplemail_id,))
+            self.mm.db.commit()
 
             return self.docker_delete(container_name)
         elif func == "add_server":
@@ -115,6 +124,11 @@ class SimpleMailServer(BaseModule):
             error, _ = self.mm['ipreserve'].run("add_ip", ip_addr=server_ip, description="SimpleMail Server: {}".format(fqdn))
             if error is not None:
                 return error, None
+
+            # Allocate our DNS name
+            err, _ = self.mm['dns'].run("add_host", fqdn=fqdn, ip_addr=server_ip)
+            if err is not None:
+                return err, None
 
             # Try to add our MX record
             mx_value = fqdn
@@ -146,29 +160,9 @@ class SimpleMailServer(BaseModule):
             os.mkdir(certs_dir)
 
             # Get the key and cert
-            err, (priv_key, cert) = self.mm['minica'].run("generate_host_cert", id=1, fqdn=fqdn)
+            err, _ = self.ssl_setup(fqdn, certs_dir, "mail")
             if err is not None:
                 return err, None
-
-            out_key_path = certs_dir + "/mail.key"
-            out_key = open(out_key_path, "w+")
-            out_key.write(priv_key)
-            out_key.close()
-
-            out_cert_path = certs_dir + "/mail.crt"
-            out_cert = open(out_cert_path, "w+")
-            out_cert.write(cert)
-            out_cert.close()
-
-            # Write the CA cert
-            err, ca_cert_file = self.mm['minica'].run("get_ca_cert", id=1, type="linux")
-            if err is not None:
-                return err, None
-
-            ca_cert_path = certs_dir + "/fakernet-ca.crt"
-            ca_cert = open(ca_cert_path, "w+")
-            ca_cert.write(ca_cert_file)
-            ca_cert.close()
 
             # Copy in configs
             build_base = "./docker-images/simplemail/"
@@ -179,7 +173,7 @@ class SimpleMailServer(BaseModule):
             for conf_file in os.listdir(postfix_build_path):
                 full_path = postfix_build_path + conf_file
                 out_path = postfix_dir + "/" + conf_file.replace("-template", "")
-                print(out_path)
+                
                 if conf_file.endswith("-template"):
                     conf_template = open(full_path, "r").read()
                     conf_template = conf_template.replace("DOMAIN.ZONE", mail_domain)
@@ -210,22 +204,13 @@ class SimpleMailServer(BaseModule):
                 "DOMAIN": mail_domain
             }
 
-            container_name = "simplemail-server-{}".format(simplemail_id)
+            container_name = INSTANCE_TEMPLATE.format(simplemail_id)
 
             err, _ = self.docker_create(container_name, vols, environment)
             if err is not None:
                 return err, None
             
-            err, _ = self.run("start_server", id=simplemail_id)
-            if err is not None:
-                return err, None
-
-            # Configure the DNS name
-            err, _ = self.mm['dns'].run("add_host", fqdn=fqdn, ip_addr=server_ip)
-            if err is not None:
-                return err, None
-
-            return None, True
+            return self.run("start_server", id=simplemail_id)
         elif func == "start_server":
             perror, _ = self.validate_params(self.__FUNCS__['start_server'], kwargs)
             if perror is not None:
@@ -242,7 +227,7 @@ class SimpleMailServer(BaseModule):
             server_ip = result[0]
 
             # Start the Docker container
-            container_name = "simplemail-server-{}".format(simplemail_id)
+            container_name = INSTANCE_TEMPLATE.format(simplemail_id)
 
             return self.docker_start(container_name, server_ip)
         elif func == "stop_server":
@@ -251,7 +236,7 @@ class SimpleMailServer(BaseModule):
                 return perror, None
 
             simplemail_id = kwargs['id']
-            container_name = "simplemail-server-{}".format(simplemail_id)
+            container_name = INSTANCE_TEMPLATE.format(simplemail_id)
 
             # Check if the server is running
             _, status = self.docker_status(container_name)
