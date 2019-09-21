@@ -1,4 +1,5 @@
 import ipaddress
+import re
 
 def is_ipnetwork(value):
     try:
@@ -19,3 +20,6 @@ def is_ip_in_network(ip, network):
         net = ipaddress.ip_network(network)
         return ipaddress.ip_address(ip) in net
     return False
+
+def is_valid_dns(name):
+    return re.match(r"[0-9A-Za-z-]+$", name)

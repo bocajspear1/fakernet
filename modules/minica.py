@@ -102,9 +102,7 @@ class MiniCAServer(BaseModule):
             dbc.execute("DELETE FROM minica_server WHERE server_id=?", (minica_server_id,))
             self.mm.db.commit()
 
-            self.docker_stop(container_name, server_ip)
-
-            return None, True
+            return self.docker_delete(container_name)
         elif func == "add_server":
             perror, _ = self.validate_params(self.__FUNCS__['add_server'], kwargs)
             if perror is not None:

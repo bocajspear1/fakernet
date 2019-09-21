@@ -7,3 +7,4 @@ pylxd
 tableprint
 jinja2
 markdown
+animation

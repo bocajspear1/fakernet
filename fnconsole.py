@@ -10,35 +10,9 @@ import lib.validate
 import lib.prompt_builder as prompt_builder
 
 import tableprint as tp
+import animation
 
 
-
-
-base_net = None
-dns_ip = None
-
-
-    # base_net = prompt_builder.prompt_get_network(premessage="Welcome to FakerNet, it appears we need to do some setup...\n\nPlease enter the initial network allocation. The main DNS server will be hosted here.")
-
-    # err, result = self.mm['netreserve'].run("add_network", net_addr=base_net, description="The central network for Fakernet. Hosts central DNS server and other critical services.")
-    # if err is None:
-    #     done = True
-    #     print("Network: " + base_net)
-    # else:
-    #     print(err)
-
-    # print("\nEnter the IP of the main DNS server. This will be the resolver for your FakerNet instance.")
-    # print("You will need to point all systems to this DNS server for things to work.")
-
-    # dns_ip = prompt_builder.prompt_get_ip_in_network(base_net)
-
-    # if dns_ip is not None:
-    #     err, result = self.mm['ipreserve'].run("add_ip", ip=dns_ip, description="Central DNS server")
-    #     if err is None:
-    #         done = True
-    #         print("DNS IP: " + dns_ip)
-    #     else:
-    #         print(err)
 
 import html
 ASCIIART = html.escape("""
@@ -171,7 +145,10 @@ class FakerNetConsole():
     def __init__(self):
 
         self.mm = ModuleManager()
+        wait = animation.Wait(text="FakerNet console is starting")
+        wait.start()
         self.mm.load()
+        wait.stop()
 
         self.session = PromptSession()
         self.global_vars = {
@@ -194,8 +171,69 @@ class FakerNetConsole():
         self.current_command = None
 
     def setup_prompts(self):
-        pass
-    
+        print_formatted_text(HTML('<skyblue>Welcome to FakerNet. We need to setup the base of your fake internet.</skyblue>'))
+
+        base_net = None
+
+        # Setup network
+        premessage="Please enter the initial network allocation. The main DNS server will be hosted here."
+        ok = False
+        while not ok:
+
+            print_formatted_text(HTML('<slateblue>{}</slateblue>'.format(premessage)))
+            base_net = prompt_builder.prompt_get_network(prompt_text="network>")
+
+            err, _ = self.mm['netreserve'].run("add_network", net_addr=base_net, description="The central network for Fakernet. Hosts central DNS server and other critical services.", switch="fakernet0")
+            if err is None:
+                ok = True
+            else:
+                print_formatted_text(HTML('<ansired>{}</ansired>'.format(err)))
+
+        # Setup DNS server
+
+        dns_root = None
+
+        ok = False
+        while not ok:
+            premessage="Please enter the root name for the DNS server, this could be 'test', 'fake' or something else."
+            print_formatted_text(HTML('<slateblue>{}</slateblue>'.format(premessage)))
+
+            dns_root = prompt_builder.prompt_get_dns_name(prompt_text="dns name>")
+
+            premessage="Enter the IP of the main DNS server. This will be the main resolver for your FakerNet instance.\n\n(You will need to point all systems to this DNS server for things to work.)"
+            print_formatted_text(HTML('<slateblue>{}</slateblue>'.format(premessage)))
+
+            dns_ip = prompt_builder.prompt_get_ip_in_network(base_net, prompt_text="dns ip>")
+
+            err, _ = self.mm['dns'].run("add_server", ip_addr=dns_ip, description="FakerNet Main DNS Resolver", domain=dns_root)
+            if err is None:
+                ok = True
+                err, _ = self.mm['dns'].run("add_zone", id=1, direction="fwd", zone=dns_root)
+                if err is not None:
+                    print_formatted_text(HTML('<ansired>{}</ansired>'.format(err)))
+                    ok = False
+
+            else:
+                print_formatted_text(HTML('<ansired>{}</ansired>'.format(err)))
+            
+        # Setup CA
+        ok = False
+        while not ok:
+            premessage="Please enter the IP of the main CA server. Services will auto-generate their certificates from here."
+            print_formatted_text(HTML('<slateblue>{}</slateblue>'.format(premessage)))
+
+            ca_ip = prompt_builder.prompt_get_ip_in_network(base_net, prompt_text="ca ip>")
+
+            err, _ = self.mm['minica'].run("add_server", fqdn="ca." + dns_root, ip_addr=ca_ip)
+            if err is None:
+                ok = True
+            else:
+                print_formatted_text(HTML('<ansired>{}</ansired>'.format(err)))
+            
+        print_formatted_text(HTML('<ansigreen>{}</ansigreen>'.format("Setup complete!")))
+
+
+
     def start(self):
         while self.running:
             try:

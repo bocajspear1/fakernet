@@ -46,4 +46,18 @@ def prompt_get_network(prompt_text=">"):
         else:
             print("Invalid network")
 
+def prompt_get_dns_name(prompt_text=">"):
+    
+    done = False
+    while not done:
+        dns = prompt(prompt_text + " ")
+
+        if dns == "!exit":
+            return None
+
+        if validate.is_valid_dns(dns):
+            return dns
+        else:
+            print("Invalid DNS name")
+
     
