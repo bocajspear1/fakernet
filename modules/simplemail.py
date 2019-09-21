@@ -86,14 +86,10 @@ class SimpleMailServer(BaseModule):
             self.run("stop_server", id=simplemail_id)
 
             # Remove the IP allocation
-            error, _ = self.mm['ipreserve'].run("remove_ip", ip_addr=server_ip)
-            if error is not None:
-                return error, None
+            self.mm['ipreserve'].run("remove_ip", ip_addr=server_ip)
 
             # Remove the host from the DNS server
-            err, _ = self.mm['dns'].run("remove_host", fqdn=fqdn, ip_addr=server_ip)
-            if err is not None:
-                return err, None
+            self.mm['dns'].run("remove_host", fqdn=fqdn, ip_addr=server_ip)
 
             # Remove MX record from DNS server
             mx_value = fqdn
@@ -244,7 +240,7 @@ class SimpleMailServer(BaseModule):
                 return "SimpleMail server is not running", None
 
             # Find the server in the database
-            dbc.execute("SELECT server_ip FROM alpinewebdav WHERE server_id=?", (simplemail_id,))
+            dbc.execute("SELECT server_ip FROM simplemail WHERE server_id=?", (simplemail_id,))
             result = dbc.fetchone()
             if not result:
                 return "SimpleMail server does not exist", None
@@ -269,6 +265,6 @@ class SimpleMailServer(BaseModule):
     
     def build(self):
         self.print("Building SimpleMail server image...")
-        self.mm.docker.images.build(path="./docker-images/simplemail/", tag=self.__SERVER_IMAGE_NAME__, rm=True, nocache=True)
+        self.mm.docker.images.build(path="./docker-images/simplemail/", tag=self.__SERVER_IMAGE_NAME__, rm=True)
 
 __MODULE__ = SimpleMailServer

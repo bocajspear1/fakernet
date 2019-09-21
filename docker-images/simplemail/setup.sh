@@ -23,6 +23,10 @@ if [ ! -e "/etc/dovecot/admin.pass" ]; then
     HASHED_PASS=$(doveadm pw -s SSHA512 -p $PASSWORD)
     sed -i "s_HASHEDPASSWORD_${HASHED_PASS}_" /etc/dovecot/db.sql
     cat /etc/dovecot/db.sql | sqlite3 /etc/postfix/vmail.sqlite
+    chown :maildb /etc/postfix/vmail.sqlite
+    chown :maildb /etc/postfix
+    chmod 775 /etc/postfix
+    chmod 664 /etc/postfix/vmail.sqlite
 fi
 
 mkdir -p /var/spool/mailvirtual/

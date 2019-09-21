@@ -370,9 +370,7 @@ class DNSServer(BaseModule):
             server_ip = result[0]
             
             # Deallocate our IP address
-            error, _ = self.mm['ipreserve'].run("remove_ip", ip_addr=server_ip)
-            if error is not None:
-                return error, None
+            self.mm['ipreserve'].run("remove_ip", ip_addr=server_ip)
 
             # Remove the container from the database
             dbc.execute("DELETE FROM dns_server WHERE server_id=?", (dns_server_id,))
@@ -529,9 +527,10 @@ class DNSServer(BaseModule):
             if not os.path.exists(zone_path):
                 return "Zone for FQDN {} in server {} not found".format(fqdn, dns_server_id), None
 
-            name = '.'.join(fqdn_split[:-1])
+            if not fqdn.endswith("."):
+                fqdn += "."
 
-            return self.run('remove_record', id=dns_server_id, zone=zone, direction=direction, type=record_type, name=name, value=value)
+            return self.run('remove_record', id=dns_server_id, zone=zone, direction=direction, type=record_type, name=fqdn, value=value)
         elif func == "add_record":
             perror, _ = self.validate_params(self.__FUNCS__['add_record'], kwargs)
             if perror is not None:
@@ -567,21 +566,22 @@ class DNSServer(BaseModule):
                 return perror, None
 
             dns_server_id = kwargs['id']
-            zone = kwargs['zone']
+            zone_name = kwargs['zone']
             direction = kwargs['direction']
             record_type = kwargs['type']
             name = kwargs['name']
             value = kwargs['value']
 
             dns_config_path = "{}/{}".format(DNS_BASE_DIR, dns_server_id)
-            zone_path =  "{}/zones/{}.{}".format(dns_config_path, zone, direction)
-            zone = easyzone.zone_from_file(zone, zone_path)
+            zone_path =  "{}/zones/{}.{}".format(dns_config_path, zone_name, direction)
+            zone = easyzone.zone_from_file(zone_name, zone_path)
 
             if name[len(name)-1] != "." and record_type == "A":
                 name = name + "."
 
+
             if name not in zone.get_names():
-                return "{} not in zone".format(name), None
+                return "{} not in zone {}".format(name, zone_name), None
             records = zone.names[name].records(record_type, create=True)
             try:
                 records.delete(value)

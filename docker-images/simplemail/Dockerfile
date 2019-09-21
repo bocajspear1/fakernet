@@ -23,10 +23,17 @@ RUN cat /var/www/localhost/htdocs/roundcube/SQL/sqlite.initial.sql | sqlite3 /va
 RUN chown -R apache:apache /var/www/localhost/db/
 RUN chmod -R 775 /var/www/localhost/db/
 
+RUN addgroup -S maildb
+RUN addgroup apache maildb
+
 COPY setup.sh /mail/
 
 COPY apache/01-access.conf /etc/apache2/conf.d/01-access.conf
 COPY apache/ssl.conf /etc/apache2/conf.d/ssl.conf
+
+COPY apache/mini.min.css /var/www/localhost/htdocs/mini.min.css
+COPY apache/newaccount.php /var/www/localhost/htdocs/newaccount.php
+COPY apache/index.html /var/www/localhost/htdocs/index.html
 
 ENV DOMAIN 'mail.fake'
 
