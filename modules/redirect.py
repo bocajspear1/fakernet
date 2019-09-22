@@ -26,7 +26,7 @@ class RedirectModule(BaseModule):
     __AUTHOR__ = "Jacob Hartman"
 
     def run(self, func, **kwargs) :
-        dbc = self.mm.db.cursor()
+        # dbc = self.mm.db.cursor()
         if func == "enable_dns_redirect":
             perror, _ = self.validate_params(self.__FUNCS__['enable_dns_redirect'], kwargs)
             if perror is not None:
@@ -39,7 +39,7 @@ class RedirectModule(BaseModule):
                 return "No base DNS server has been created", None
 
             try:
-                subprocess.check_output(["/usr/bin/sudo", "-n", "/sbin/iptables", "-C", "-t", "nat", "-A", "PREROUTING", "-i", interface, "-p", "udp", "-m", "udp", "--dport", "53", "-j", "DNAT", "--to-destination", server_data['server_ip'] + ":53"], stderr=subprocess.DEVNULL)     
+                subprocess.check_output(["/usr/bin/sudo", "-n", "/sbin/iptables", "-t", "nat", "-A", "PREROUTING", "-i", interface, "-p", "udp", "-m", "udp", "--dport", "53", "-j", "DNAT", "--to-destination", server_data['server_ip'] + ":53"], stderr=subprocess.DEVNULL)     
             except subprocess.CalledProcessError:
                 return "Could not enable DNS redirect", None
 
@@ -57,7 +57,7 @@ class RedirectModule(BaseModule):
                 return "No base DNS server has been created", None
 
             try:
-                subprocess.check_output(["/usr/bin/sudo", "-n", "/sbin/iptables", "-t", "nat", "-D", "PREROUTING", "-i", interface, "-p", "udp", "-m", "udp", "--dport", "53", "-j", "DNAT", "--to-destination", server_data['server_ip'] + ":53"], stderr=subprocess.DEVNULL)     
+                subprocess.check_output(["/usr/bin/sudo", "-n", "/sbin/iptables", "-t", "nat", "-D", "PREROUTING", "-i", interface, "-p", "udp", "-m", "udp", "--dport", "53", "-j", "DNAT", "--to-destination", server_data['server_ip'] + ":53"])     
             except subprocess.CalledProcessError:
                 return "Could not disable DNS redirect", None
 
@@ -70,14 +70,7 @@ class RedirectModule(BaseModule):
 
     
     def check(self):
-        dbc = self.mm.db.cursor()
-
-        # self.check_working_dir()
-
-        # dbc.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='bepasty';")
-        # if dbc.fetchone() is None:
-        #     dbc.execute("CREATE TABLE bepasty (server_id INTEGER PRIMARY KEY, server_fqdn TEXT, server_ip TEXT);")
-        #     self.mm.db.commit()
+        pass
     
     def build(self):
         pass

@@ -107,3 +107,25 @@ pip3 install -r requirements.txt
 ```
 python3 build.py
 ```
+9. Run `fnconsole` to run the setup and start FakerNet services.
+```
+./fnconsole
+```
+10. (Recommended) Install `iptables-persistent` to manage your iptables rules.
+11. Allow Forwarding between your internal and external interfaces:
+```
+sudo iptables -I FORWARD -i <INTERNAL_INTERFACE> -j ACCEPT
+sudo iptables -I FORWARD -i <EXTERNAL_INTERFACE> -j ACCEPT
+```
+12. Enable masqerading for external access:
+```
+sudo iptables -t nat -I POSTROUTING 1 -o <EXTERNAL_INTERFACE> -j MASQUERADE
+```
+13. (Recommended) Setup forwarders for the main DNS server:
+```
+./fnconsole
+run dns add_forwarder
+set id 1
+set ip_addr <FORWARDER IP>
+execute
+```
