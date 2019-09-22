@@ -170,17 +170,15 @@ class LXDManager(BaseModule):
             lxd_id = kwargs['id']
             
             # Get server ip from database
-            dbc.execute("SELECT ip_addr, fqdn FROM lxd_container WHERE lxd_id=?", (lxd_id,))
+            dbc.execute("SELECT fqdn FROM lxd_container WHERE lxd_id=?", (lxd_id,))
             result = dbc.fetchone()
             if not result:
                 return "Container does not exist", None
 
-            server_ip = result[0]
-            fqdn = result[1]
+            fqdn = result[0]
 
             fqdn_split = fqdn.split(".")
 
-            
             try:
                 container = self.mm.lxd.containers.get(fqdn_split[0])
                 container.start()
@@ -231,7 +229,7 @@ class LXDManager(BaseModule):
 
     def build(self):
         for image_name in PULL_IMAGES:
-            print("Pulling in {} - {}".format(PULL_SERVER, PULL_IMAGES[image_name]))
+            self.print("Pulling in {} - {}".format(PULL_SERVER, PULL_IMAGES[image_name]))
             image = self.mm.lxd.images.create_from_simplestreams(PULL_SERVER, PULL_IMAGES[image_name])
 
             found = False

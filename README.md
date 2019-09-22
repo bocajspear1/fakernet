@@ -42,7 +42,7 @@ FakerNet is a framework to quickly build internet-like services rapidly for home
 
 Be sure your user is the `docker` group so they can execute Docker commands
 
-For the sake of security, set Docker to run containers unprivileged. 
+For the sake of security, set Docker to run containers unprivileged. In `/etc/docker/daemon.json`:
 ```
 {
   "userns-remap": "default"
@@ -53,6 +53,8 @@ You will then need to allow remapping in the container so that we can edit files
 ```
 dockremap:1000:1
 ```
+
+Be sure to restart Docker to enable these changes.
 
 ### Open vSwitch
 
@@ -68,3 +70,40 @@ jacob ALL=(ALL) NOPASSWD: /usr/bin/ovs-docker
 ### LXD
 
 Be sure your user is in the `lxd` group to allow the execution of LXD commands.
+
+### iptables
+
+Also add sudo rules for `iptables`
+```
+jacob ALL=(ALL) NOPASSWD: /sbin/iptables
+```
+
+# Installation
+
+## Ubuntu 18.04
+
+1. Install dependencies:
+```
+apt-get install git python3-venv python3-pip openvswitch-switch lxd 
+```
+2. Install Docker as indicated on their [website](https://docs.docker.com/install/linux/docker-ce/ubuntu/). Configure as dictated in the **Permissions** section.
+3. Add your user to the `docker` group.
+4. Be sure to re-login so that group permissions come into effect.
+5. Git the FakerNet repo and enter it:
+```
+git clone https://github.com/bocajspear1/fakernet.git
+cd fakernet
+```
+6. Create a virtualenv and activate it:
+```
+python3 -m venv ./venv
+. ./venv/bin/activate
+```
+7. Install Python dependencies:
+```
+pip3 install -r requirements.txt
+```
+8. Build the FakerNet Docker images and pull in LXD images:
+```
+python3 build.py
+```

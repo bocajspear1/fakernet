@@ -159,7 +159,6 @@ class NetReservation(BaseModule):
             for network in results:
                 if validate.is_ip_in_network(ip, network[1]):
                     return None, ipaddress.ip_network(network[1])
-            print(results)
             
             return None, True
         else:

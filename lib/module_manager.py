@@ -19,7 +19,9 @@ class ModuleManager():
                 temp = importlib.import_module("modules." + module.replace(".py", ""))
                 shortname = temp.__MODULE__.__SHORTNAME__
                 self.modules[shortname] = temp.__MODULE__(self)
-                self.modules[shortname].check()
+                if shortname != "init":
+                    # fnconsole manually calls init's check
+                    self.modules[shortname].check()
 
     def build_all(self):
         module_list = os.listdir("./modules")

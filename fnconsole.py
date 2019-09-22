@@ -13,7 +13,6 @@ import tableprint as tp
 import animation
 
 
-
 import html
 ASCIIART = html.escape("""
 ______    _             _   _      _   
@@ -149,6 +148,8 @@ class FakerNetConsole():
         wait.start()
         self.mm.load()
         wait.stop()
+
+        self.mm['init'].check()
 
         self.session = PromptSession()
         self.global_vars = {
@@ -371,8 +372,11 @@ class FakerNetConsole():
             # If there are not parameters, just run the function
             if len(module.__FUNCS__[function]) == 0 or len(module.__FUNCS__[function]) == 1 and "_desc" in module.__FUNCS__[function]:
                 error, result = module.run(function)
-                if 'rows' in result and 'columns' in result:
-                    print_table(result['rows'], result['columns'])
+                if error is None:
+                    if 'rows' in result and 'columns' in result:
+                        print_table(result['rows'], result['columns'])
+                else:
+                    print_formatted_text(HTML('<ansired>Error: {}</ansired>'.format(error)))
             else:
                 show_name = module_name + '.' + function
 

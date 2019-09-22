@@ -134,7 +134,7 @@ class MiniCAServer(BaseModule):
             ca_data_path = "{}/{}".format(CA_BASE_DIR, minica_server_id)
 
             if os.path.exists(ca_data_path):
-                print("Removing old CA directory...")
+                self.print("Removing old CA directory...")
                 shutil.rmtree(ca_data_path)
 
             os.mkdir(ca_data_path)
