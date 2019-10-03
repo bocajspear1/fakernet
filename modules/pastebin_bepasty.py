@@ -213,6 +213,6 @@ class BePastyServer(BaseModule):
     
     def build(self):
         self.print("Building PasteBin Bepasty server image...")
-        self.mm.docker.images.build(path="./docker-images/pastebin-bepasty/", tag=self.__SERVER_IMAGE_NAME__, rm=True, nocache=True)
+        self.mm.docker.images.build(path="./docker-images/pastebin-bepasty/", tag=self.__SERVER_IMAGE_NAME__, rm=True)
 
 __MODULE__ = BePastyServer
