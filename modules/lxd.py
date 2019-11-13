@@ -239,4 +239,20 @@ class LXDManager(BaseModule):
             if not found:
                 image.add_alias(name=image_name, description=image_name)
 
+    def get_list(self):
+        dbc = self.mm.db.cursor()
+
+        dbc.execute("SELECT lxd_id, ip_addr, fqdn FROM lxd_container;")
+
+        results = dbc.fetchall()
+        new_list = []
+        for container in results:
+            new_data = ["lxd"]
+            new_data += [container[0], container[1], container[2]]
+            container_name = container[2].split(".")[0]
+            _, status = self._get_lxd_status(container_name)
+            new_data += status[1]
+            new_list.append(new_data)
+        return new_list
+
 __MODULE__ = LXDManager

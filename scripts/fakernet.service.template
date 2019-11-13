@@ -1,0 +1,16 @@
+[Unit]
+Description=FakerNet Server
+After=network.target
+StartLimitIntervalSec=0
+
+[Service]
+Type=simple
+Restart=always
+RestartSec=1
+User=CURRENTUSER
+WorkingDirectory=PWD/
+ExecStart=PWD/fnserver
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

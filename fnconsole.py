@@ -55,7 +55,9 @@ class CommandCompleter(Completer):
         'global',
         'uglobal',
         'exit',
-        'stats'
+        'stats',
+        'list_servers',
+        'list_running'
     ]
 
     RUN_COMMANDS = [
@@ -143,33 +145,54 @@ class FakerNetConsole():
 
     def __init__(self):
 
-        self.mm = ModuleManager()
-        wait = animation.Wait(text="FakerNet console is starting")
+        
+        wait = animation.Wait(text="Looking for local FakerNet server")
         wait.start()
-        self.mm.load()
+        self.mm = ModuleManager(ip="127.0.0.1")
+        error = self.mm.load()
         wait.stop()
+        if error is not None:
+            print_formatted_text(HTML('\n\n<ansired>{}</ansired>'.format(error)))
+            wait = animation.Wait(text="FakerNet console is starting")
+            wait.start()
+            self.mm = ModuleManager()
+            self.mm.load()
+            wait.stop()
 
-        self.mm['init'].check()
+            self.mm['init'].check()
+            self.host = "local"
+        else:
+            self.host = self.mm.ip
+            
 
         self.session = PromptSession()
         self.global_vars = {
             "AUTO_ADD": False
         }
+
         self.completer = CommandCompleter(self.mm, self.global_vars)
 
-        err, _ = self.mm['init'].run("verify_permissions")
-        if err is not None:
-            print_formatted_text(HTML('<ansired>{}</ansired>'.format(err)))
-            sys.exit(1)
+        if self.mm.ip == None:
+            err, _ = self.mm['init'].run("verify_permissions")
+            if err is not None:
+                print_formatted_text(HTML('<ansired>{}</ansired>'.format(err)))
+                sys.exit(1)
 
+        
         print_formatted_text(HTML('<ansigreen>{}</ansigreen>'.format(ASCIIART)))
         print_formatted_text(HTML('<skyblue>Internet-in-a-box\n</skyblue>'))
+        if self.mm.ip == None:
+            print_formatted_text(HTML('<ansigreen>NOTE: In non-server mode!</ansigreen>'))
+            if self.mm['init'].init_needed:
+                self.setup_prompts()
+        else:
+            print_formatted_text(HTML('<ansigreen>Connected to {}</ansigreen>'.format(self.mm.ip)))
 
-        if self.mm['init'].init_needed:
-            self.setup_prompts()
+            
 
         self.running = True
         self.current_command = None
+        
 
     def setup_prompts(self):
         print_formatted_text(HTML('<skyblue>Welcome to FakerNet. We need to setup the base of your fake internet.</skyblue>'))
@@ -238,11 +261,11 @@ class FakerNetConsole():
     def start(self):
         while self.running:
             try:
-                prompt = '> '
+                prompt = self.host + '> '
                 if self.current_command is not None:
                     self.completer.run_mode = True
                     self.completer.run_options = self.current_command['function']
-                    prompt = self.current_command['display_name'] + '> '
+                    prompt = self.host + "(" + self.current_command['display_name'] + ')> '
 
                 command_string = self.session.prompt(prompt, completer=self.completer)
 
@@ -272,6 +295,14 @@ class FakerNetConsole():
         elif command == "global":
             pass
         elif command == "uglobal":
+            pass
+        elif command == "list_servers":
+            error, server_list = self.mm.list_all_servers()
+            if error is None:
+                print_table(server_list, ["Module", "ID", "IP", "Description", "status"])
+            else:
+                print_formatted_text(HTML('<ansired>Error: "{}"</ansired>'.format(error)))
+        elif command == "list_running":
             pass
         else:
             print_formatted_text(HTML('<ansired>Error: Invalid command "{}"</ansired>'.format(command)))

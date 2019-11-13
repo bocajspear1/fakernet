@@ -22,9 +22,28 @@ class BaseModule():
     def get_path(self):
         return __file__
 
+    # Some default functions that should be overriden in modules
     def build(self):
         pass
 
+    def get_list(self):
+        return []
+
+    # Adds status info for get_list. Passed list should have data in format ID, ip address, description
+    def _list_add_data(self, server_info, instance_template):
+        new_list = []
+        for server in server_info:
+            new_data = [self.__SHORTNAME__]
+            new_data += [server[0], server[1], server[2]]
+            error, status = self.docker_status(instance_template.format(server[0]))
+            if error is None:
+                new_data.append(status[1])
+            else:
+                new_data.append("error")
+            new_list.append(new_data)
+        return new_list
+
+    # Help setup functions
     def check_working_dir(self):
         if not os.path.exists("./work/" + self.__SHORTNAME__):
             os.mkdir("./work/" + self.__SHORTNAME__)

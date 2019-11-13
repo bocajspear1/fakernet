@@ -141,4 +141,11 @@ class External(BaseModule):
     def build(self):
         pass
 
+    def list_running(self):
+        return []
+
+    def restore(self, restore_data):
+        pass
+
+
 __MODULE__ = External

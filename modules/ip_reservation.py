@@ -94,4 +94,10 @@ class IPReservation(BaseModule):
     def build(self):
         pass
 
+    def restore(self, restore_data):
+        pass
+
+    def save(self):
+        pass
+
 __MODULE__ = IPReservation

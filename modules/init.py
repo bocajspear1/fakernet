@@ -29,7 +29,7 @@ class FakernetInit(BaseModule):
                 subprocess.check_output(["/usr/bin/sudo", "-n", "/sbin/iptables", "-vL"], stderr=subprocess.DEVNULL)     
             except subprocess.CalledProcessError:
                 errors.append("'sudo' for iptables not set. Add permissions to run this command using 'visudo'")
-                
+
             try:
                 subprocess.check_output(["/usr/bin/sudo", "-n", "/usr/bin/ovs-docker"], stderr=subprocess.DEVNULL)     
             except subprocess.CalledProcessError:
@@ -62,7 +62,11 @@ class FakernetInit(BaseModule):
             self.network_needed = True
 
         
+    def restore(self, restore_data):
+        pass
 
+    def save(self):
+        pass
         
     
 

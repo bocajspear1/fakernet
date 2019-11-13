@@ -8,3 +8,4 @@ tableprint
 jinja2
 markdown
 animation
+gunicorn

@@ -749,4 +749,12 @@ class DNSServer(BaseModule):
         _, logs = self.mm.docker.images.build(path="./docker-images/dns/", tag=self.__SERVER_IMAGE_NAME__, rm=True)
         # self.print(logs)
 
+    def get_list(self):
+        dbc = self.mm.db.cursor()
+
+        dbc.execute("SELECT server_id, server_ip, server_desc FROM dns_server;")
+
+        results = dbc.fetchall()
+        return self._list_add_data(results, INSTANCE_TEMPLATE)
+
 __MODULE__ = DNSServer
