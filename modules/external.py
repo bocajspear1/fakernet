@@ -138,14 +138,9 @@ class External(BaseModule):
             dbc.execute("CREATE TABLE externalhost (host_id INTEGER PRIMARY KEY, fqdn TEXT, ip_addr TEXT, host_desc TEXT);")
             self.mm.db.commit()
 
-    def build(self):
-        pass
 
     def list_running(self):
         return []
-
-    def restore(self, restore_data):
-        pass
 
 
 __MODULE__ = External

@@ -1,5 +1,6 @@
 import sys 
 import sqlite3
+import sys
 
 from flask import Flask, g, jsonify, current_app, request
 
@@ -17,6 +18,11 @@ def create_app():
         if current_app.mm['init'].init_needed:
             print("FakerNet is not yet configured. Please run `fnconsole` first to configure your setup.")
             sys.exit()
+
+        error, _ = current_app.mm.restore_state(save_name="default")
+        if error is not None:
+            print(error)
+            sys.exit(1)
 
     return app
 
@@ -87,6 +93,30 @@ def list_servers():
         "ok": True,
         "result": server_list
     })
+
+@app.route('/api/v1/_servers/save_state/<state_name>', methods = ['GET'])
+def save_state(state_name):
+
+    error, status = current_app.mm.save_state(save_name=state_name)
+    if error is not None:
+        return jsonify({
+            "ok": False,
+            "error": error
+        })
+    return jsonify({
+        "ok": True,
+        "result": status
+    })
+
+@app.route('/api/v1/_servers/restore_state/<state_name>', methods = ['GET'])
+def restore_state(state_name):
+
+    current_app.mm.restore_state(save_name=state_name)
+    return jsonify({
+        "ok": True,
+        "result": True
+    })
+
 
 if __name__== '__main__':
     app.run()

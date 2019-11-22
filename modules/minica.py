@@ -70,7 +70,21 @@ class MiniCAServer(BaseModule):
     def run(self, func, **kwargs) :
         dbc = self.mm.db.cursor()
         if func == "list":
-            pass 
+            dbc.execute("SELECT * FROM minica_server;") 
+            results = dbc.fetchall()
+            new_results = []
+            for row in results:
+                new_row = list(row)
+                
+                _, status = self.docker_status(INSTANCE_TEMPLATE.format(row[0]))
+                new_row.append(status[0])
+                new_row.append(status[1])
+                new_results.append(new_row)
+
+            return None, {
+                "rows": new_results,
+                "columns": ['ID', "server_fqdn", "server_ip", 'built', 'status']
+            }
         elif func == "remove_server":
             perror, _ = self.validate_params(self.__FUNCS__['remove_server'], kwargs)
             if perror is not None:
@@ -87,6 +101,7 @@ class MiniCAServer(BaseModule):
             fqdn = result[0]
             container_name = INSTANCE_TEMPLATE.format(minica_server_id)
 
+            # Ignore any shutdown errors, maybe the container was stopped externally
             self.run("stop_server", id=minica_server_id)
 
             # Remove the IP allocation
@@ -312,5 +327,21 @@ class MiniCAServer(BaseModule):
 
         results = dbc.fetchall()
         return self._list_add_data(results, INSTANCE_TEMPLATE)
+
+    def save(self):
+        dbc = self.mm.db.cursor()
+        dbc.execute("SELECT server_id FROM minica_server;")
+        results = dbc.fetchall()
+
+        return self._save_add_data(results, INSTANCE_TEMPLATE)
+
+    def restore(self, restore_data):
+        dbc = self.mm.db.cursor()
+        
+        for server_data in restore_data:
+            dbc.execute("SELECT server_ip FROM minica_server WHERE server_id=?", (server_data[0],))
+            results = dbc.fetchone()
+            if results:
+                self._restore_server(INSTANCE_TEMPLATE.format(server_data[0]), results[0], server_data[1])
 
 __MODULE__ = MiniCAServer

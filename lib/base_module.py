@@ -29,6 +29,12 @@ class BaseModule():
     def get_list(self):
         return []
 
+    def save(self):
+        return None
+
+    def restore(self, data):
+        pass
+
     # Adds status info for get_list. Passed list should have data in format ID, ip address, description
     def _list_add_data(self, server_info, instance_template):
         new_list = []
@@ -42,6 +48,40 @@ class BaseModule():
                 new_data.append("error")
             new_list.append(new_data)
         return new_list
+
+    def _save_add_data(self, server_ids, instance_template):
+        save_data = []
+        for server in server_ids:
+            server_id = server[0]
+            error, status = self.docker_status(instance_template.format(server_id))
+            
+            if status[0] == 'yes':
+                if error is None and status[1] == "running":
+                    save_data.append([server_id, "running"])
+                else:
+                    save_data.append([server_id, "stopped"])
+        return save_data
+
+    def _restore_server(self, container_name, server_ip, new_status):
+
+        error, status = self.docker_status(container_name)
+        if error is not None:
+            return error, None
+        if new_status == "running" and status[1] == "running":
+            print("Server {} already running".format(container_name))
+        elif new_status == "running":
+            print("Restoring {}".format(container_name))
+            error, _ = self.docker_start(container_name, server_ip)
+            if error is not None:
+                print("Got error: {}".format(error))
+        elif new_status == "stopped" and status[1] == "running":
+            print("Stopping {}".format(container_name))
+            error, _ = self.docker_stop(container_name, server_ip)
+            if error is not None:
+                print("Got error: {}".format(error))
+    
+        return None, True
+            
 
     # Help setup functions
     def check_working_dir(self):

@@ -751,10 +751,26 @@ class DNSServer(BaseModule):
 
     def get_list(self):
         dbc = self.mm.db.cursor()
-
         dbc.execute("SELECT server_id, server_ip, server_desc FROM dns_server;")
-
         results = dbc.fetchall()
+
         return self._list_add_data(results, INSTANCE_TEMPLATE)
+
+    def save(self):
+        dbc = self.mm.db.cursor()
+        dbc.execute("SELECT server_id FROM dns_server;")
+        results = dbc.fetchall()
+
+        return self._save_add_data(results, INSTANCE_TEMPLATE)
+
+    def restore(self, restore_data):
+        dbc = self.mm.db.cursor()
+        
+        for server_data in restore_data:
+            dbc.execute("SELECT server_ip FROM dns_server WHERE server_id=?", (server_data[0],))
+            results = dbc.fetchone()
+            if results:
+                self._restore_server(INSTANCE_TEMPLATE.format(server_data[0]), results[0], server_data[1])
+
 
 __MODULE__ = DNSServer

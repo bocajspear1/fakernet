@@ -1,6 +1,7 @@
 [Unit]
 Description=FakerNet Server
-After=network.target
+Requires=docker.service lxd.service openvswitch-switch.service
+After=network.target docker.service lxd.service openvswitch-switch.service
 StartLimitIntervalSec=0
 
 [Service]

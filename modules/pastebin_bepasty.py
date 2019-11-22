@@ -215,4 +215,20 @@ class BePastyServer(BaseModule):
         self.print("Building PasteBin Bepasty server image...")
         self.mm.docker.images.build(path="./docker-images/pastebin-bepasty/", tag=self.__SERVER_IMAGE_NAME__, rm=True)
 
+    def save(self):
+        dbc = self.mm.db.cursor()
+        dbc.execute("SELECT server_id FROM bepasty;")
+        results = dbc.fetchall()
+
+        return self._save_add_data(results, INSTANCE_TEMPLATE)
+
+    def restore(self, restore_data):
+        dbc = self.mm.db.cursor()
+        
+        for server_data in restore_data:
+            dbc.execute("SELECT server_ip FROM bepasty WHERE server_id=?", (server_data[0],))
+            results = dbc.fetchone()
+            if results:
+                self._restore_server(INSTANCE_TEMPLATE.format(server_data[0]), results[0], server_data[1])
+
 __MODULE__ = BePastyServer

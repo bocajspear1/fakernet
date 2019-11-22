@@ -57,7 +57,9 @@ class CommandCompleter(Completer):
         'exit',
         'stats',
         'list_servers',
-        'list_running'
+        'list_running',
+        'save',
+        'restore'
     ]
 
     RUN_COMMANDS = [
@@ -304,6 +306,28 @@ class FakerNetConsole():
                 print_formatted_text(HTML('<ansired>Error: "{}"</ansired>'.format(error)))
         elif command == "list_running":
             pass
+        elif command == "save":
+            error = None
+            if len(command_input) > 1:
+                self.mm.save_state(save_name=command_input[1])
+            else:
+                self.mm.save_state()
+            
+            if error is None:
+                print_formatted_text(HTML('<ansigreen>Save OK</ansigreen>'))
+            else:
+                print_formatted_text(HTML('<ansired>Save Error: "{}"</ansired>'.format(error)))
+        elif command == "restore":
+            error = None
+            if len(command_input) > 1:
+                error, _ = self.mm.restore_state(save_name=command_input[1])
+            else:
+                error, _ = self.mm.restore_state()
+
+            if error is None:
+                print_formatted_text(HTML('<ansigreen>Restore OK</ansigreen>'))
+            else:
+                print_formatted_text(HTML('<ansired>Restore Error: "{}"</ansired>'.format(error)))
         else:
             print_formatted_text(HTML('<ansired>Error: Invalid command "{}"</ansired>'.format(command)))
 
@@ -311,6 +335,7 @@ class FakerNetConsole():
         command = command_input[0].lower()
         if command == "exit":
             self.current_command = None
+            self.completer.run_mode = False
         elif command == "run":
             self.command_run(command_input[1:])
         elif command == "set":

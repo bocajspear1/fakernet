@@ -1,8 +1,11 @@
 import importlib
 import os 
+import json
+import re
 from threading import Lock
 
 PORT = 5050
+SAVES_DIR = "./saves"
 
 class LockModule():
 
@@ -127,3 +130,82 @@ class ModuleManager():
 
     def __getitem__(self, key): 
         return self.modules[key]
+
+    def save_state(self, save_name="default"):
+
+        if re.search(r"[^-a-zA-Z0-9_]", save_name) is not None:
+            return "Invalid character in save name", None
+
+        if not self.ip:
+            all_save_data = {}
+
+            for module_name in self.modules:
+                module = self.modules[module_name]
+                save_data = module.save()
+                if save_data is not None:
+                    all_save_data[module.__SHORTNAME__] = save_data
+            
+            if not os.path.exists(SAVES_DIR):
+                os.mkdir(SAVES_DIR, 0o750)
+
+            out_path = "{}/{}.json".format(SAVES_DIR, save_name)
+
+            if os.path.exists(out_path):
+                os.rename(out_path, out_path + ".last")
+            
+            outdata = json.dumps(all_save_data, sort_keys=True, indent=4, separators=(',', ': '))
+
+            out_file = open(out_path, "w+")
+            out_file.write(outdata)
+            out_file.close()
+
+            return None, True
+        else:
+            try:
+                resp = self._r.get(self._get_url() + "/_servers/save_state/{}".format(save_name))
+                if resp.status_code != 200:
+                    return "Got error code {} from server".format(resp.status_code)
+                rmodule_data = resp.json()
+                if not rmodule_data['ok']:
+                    return "Got error from server: {}".format(rmodule_data['error'])
+                else:
+                    return None, True
+            except self._r.exceptions.SSLError:
+                return "Could not connect to {}:{} via HTTPS".format(self.ip, PORT), None
+            except self._r.exceptions.ConnectionError:
+                return "Failed to connect to server at {}:{}".format(self.ip, PORT), None
+
+    def restore_state(self, save_name="default"):
+        if not self.ip:
+
+            restore_path = "{}/{}.json".format(SAVES_DIR, save_name)
+
+            if not os.path.exists(restore_path):
+                return "Could not find the restore file of that name", None
+
+            restore_file = open(restore_path, "r")
+            restore_raw = restore_file.read()
+            restore_file.close()
+
+            all_save_data = json.loads(restore_raw)
+
+            for module_name in self.modules:
+                module = self.modules[module_name]
+                if module.__SHORTNAME__ in all_save_data:
+                    module.restore(all_save_data[module.__SHORTNAME__])
+
+            return None, True
+        else:
+            try:
+                resp = self._r.get(self._get_url() + "/_servers/restore_state/{}".format(save_name))
+                if resp.status_code != 200:
+                    return "Got error code {} from server".format(resp.status_code)
+                rmodule_data = resp.json()
+                if not rmodule_data['ok']:
+                    return "Got error from server: {}".format(rmodule_data['error'])
+                else:
+                    return None, True
+            except self._r.exceptions.SSLError:
+                return "Could not connect to {}:{} via HTTPS".format(self.ip, PORT)
+            except self._r.exceptions.ConnectionError:
+                return "Failed to connect to server at {}:{}".format(self.ip, PORT)
