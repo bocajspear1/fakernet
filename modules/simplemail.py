@@ -283,4 +283,12 @@ class SimpleMailServer(BaseModule):
             if results:
                 self._restore_server(INSTANCE_TEMPLATE.format(server_data[0]), results[0], server_data[1])
 
+    def get_list(self):
+        dbc = self.mm.db.cursor()
+
+        dbc.execute("SELECT server_id, server_ip, server_fqdn FROM simplemail;")
+
+        results = dbc.fetchall()
+        return self._list_add_data(results, INSTANCE_TEMPLATE)
+
 __MODULE__ = SimpleMailServer

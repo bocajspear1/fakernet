@@ -215,6 +215,14 @@ class MattermostServer(BaseModule):
         _, logs = self.mm.docker.images.build(path="./docker-images/mattermost/", tag=self.__SERVER_IMAGE_NAME__, rm=True)
         # self.print(logs)
 
+    def get_list(self):
+        dbc = self.mm.db.cursor()
+
+        dbc.execute("SELECT server_id, server_ip, server_fqdn FROM minica_server;")
+
+        results = dbc.fetchall()
+        return self._list_add_data(results, INSTANCE_TEMPLATE)
+        
     def save(self):
         dbc = self.mm.db.cursor()
         dbc.execute("SELECT server_id FROM mattermost;")
