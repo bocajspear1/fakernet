@@ -1,3 +1,5 @@
+import shlex
+
 from lib.base_module import BaseModule
 import lib.validate as validate
 
@@ -7,7 +9,67 @@ PULL_SERVER = "https://images.linuxcontainers.org"
 PULL_IMAGES = {
     "ubuntu_1804": "ubuntu/18.04",
     "ubuntu_1604": "ubuntu/16.04",
+    "centos7": "centos/7",
     "alpine_310": "alpine/3.10"
+}
+
+BUILD_BASE_IMAGES = {
+    "ubuntu_1804_base": {
+        "template": "ubuntu_1804",
+        "commands": [
+            "apt-get update",
+            "apt-get -y dist-upgrade",
+            "apt-get -y install openssh-server tmux",
+            "echo 'PermitRootLogin yes' >> /etc/ssh/sshd_config",
+            "service ssh restart",
+        ]
+    },
+    "ubuntu_1604_base": {
+        "template": "ubuntu_1604",
+        "commands": [
+            "apt-get update",
+            "apt-get -y dist-upgrade",
+            "apt-get -y install openssh-server tmux",
+            "echo 'PermitRootLogin yes' >> /etc/ssh/sshd_config",
+            "service ssh restart",
+        ]
+    },
+    "centos7_base": {
+        "template": "centos7",
+        "commands": [
+            "yum -y upgrade",
+            "yum -y install openssh-server tmux",
+            "echo 'PermitRootLogin yes' >> /etc/ssh/sshd_config",
+            "systemctl restart sshd",
+        ]
+    }
+}
+
+BUILD_SPECIALIZED_IMAGES = {
+    "ubuntu_1804_lamp": {
+        "template": "ubuntu_1804_base",
+        "commands": [
+            "apt-get -y install apache2 mysql-server libapache2-mod-php"
+        ]
+    },
+    "ubuntu_1604_lamp": {
+        "template": "ubuntu_1804_base",
+        "commands": [
+            "apt-get -y install apache2 mysql-server libapache2-mod-php"
+        ]
+    },
+    "centos7_lamp": {
+        "template": "centos7_base",
+        "commands": [
+            "yum -y install httpd php php-mysql php-mysqlnd php-cli mariadb",
+        ]
+    },
+    "ubuntu_1804_relay": {
+        "template": "ubuntu_1804_base",
+        "commands": [
+            "apt-get -y install socat apache2 libapache2-mod-php"
+        ]
+    },
 }
 
 class LXDManager(BaseModule):
@@ -23,6 +85,7 @@ class LXDManager(BaseModule):
             "_desc": "Add a new container",
             'fqdn': "TEXT",
             "ip_addr": "IP_ADDR",
+            "password": "PASSWORD",
             "template": "TEXT",
         },
         "remove_container": {
@@ -94,7 +157,7 @@ class LXDManager(BaseModule):
 
             fqdn_split = fqdn.split(".")
 
-            if template not in PULL_IMAGES:
+            if template not in BUILD_BASE_IMAGES and template not in BUILD_SPECIALIZED_IMAGES:
                 return "Unsupported template", None
 
             error, switch = self.mm['netreserve'].run("get_ip_switch", ip_addr=ip_addr)
@@ -227,17 +290,88 @@ class LXDManager(BaseModule):
             dbc.execute("CREATE TABLE lxd_container (lxd_id INTEGER PRIMARY KEY, fqdn TEXT, ip_addr TEXT, template TEXT);")
             self.mm.db.commit()
 
-    def build(self):
-        for image_name in PULL_IMAGES:
-            self.print("Pulling in {} - {}".format(PULL_SERVER, PULL_IMAGES[image_name]))
-            image = self.mm.lxd.images.create_from_simplestreams(PULL_SERVER, PULL_IMAGES[image_name])
+    def _build_image(self, image_name, template, switch, commands):
+        try:
+            self.mm.lxd.images.get_by_alias(image_name)
+        except pylxd.exceptions.NotFound:
+            container_name = (image_name + "_temp").replace("_", "-")
 
-            found = False
-            for alias in image.aliases:
-                if alias['name'] == image_name:
-                    found = True
-            if not found:
-                image.add_alias(name=image_name, description=image_name)
+            self.print("Building {}".format(image_name))
+            temp_container = self.mm.lxd.containers.create({
+                'name': container_name, 
+                'source': {'type': 'image', 'alias': template},
+                'config': {
+
+                },
+                "devices": {
+                    "eth0": {
+                        "type": "nic",
+                        "nictype": "bridged",
+                        "parent": switch
+                    }
+                },
+            }, wait=True)
+
+            temp_container.start(wait=True)
+            status, stdout, stderr = temp_container.execute(["/bin/sh", "-c", "sleep 5"])
+            for command in commands:
+                self.print("Ran: " + command)
+                status, stdout, stderr = temp_container.execute(["/bin/sh", "-c", command])
+                if status != 0:
+                    self.print("Command failed!")
+                    self.print(stdout)
+                    self.print(stderr)
+                    temp_container.stop(wait=True)
+                    temp_container.delete(wait=True)
+
+                    return False
+
+            temp_container.stop(wait=True)
+
+            image = temp_container.publish(wait=True)
+            image.add_alias(name=image_name, description=image_name)
+            temp_container.delete(wait=True)
+        return True
+
+    def build(self):
+
+        self.print("Pulling down LXC images...")
+        for image_name in PULL_IMAGES:
+            try:
+                self.mm.lxd.images.get_by_alias(image_name)
+            except pylxd.exceptions.NotFound:
+
+                self.print("Pulling in {} - {}".format(PULL_SERVER, PULL_IMAGES[image_name]))
+                image = self.mm.lxd.images.create_from_simplestreams(PULL_SERVER, PULL_IMAGES[image_name])
+
+                found = False
+                for alias in image.aliases:
+                    if alias['name'] == image_name:
+                        found = True
+                if not found:
+                    image.add_alias(name=image_name, description=image_name)
+
+        lxd_net_config = {
+            'ipv4.address': "10.100.10.1/24",
+            'ipv4.nat': 'true',
+            'ipv4.dhcp': 'true'
+        }
+
+        BUILD_SWITCH = "buildnet0"
+        self.mm.lxd.networks.create(BUILD_SWITCH, config=lxd_net_config)
+
+        self.print("Creating base images...")
+        for image_name in BUILD_BASE_IMAGES:
+            base_data = BUILD_BASE_IMAGES[image_name]
+            ok = self._build_image(image_name, base_data['template'], BUILD_SWITCH, base_data['commands'])
+            if not ok:
+                lxd_network = self.mm.lxd.networks.get(BUILD_SWITCH)
+                lxd_network.delete()
+                return
+            
+
+        lxd_network = self.mm.lxd.networks.get(BUILD_SWITCH)
+        lxd_network.delete()
 
     def get_list(self):
         dbc = self.mm.db.cursor()
