@@ -1,4 +1,5 @@
 import shlex
+import time
 
 from lib.base_module import BaseModule
 import lib.validate as validate
@@ -61,7 +62,7 @@ BUILD_SPECIALIZED_IMAGES = {
     "centos7_lamp": {
         "template": "centos7_base",
         "commands": [
-            "yum -y install httpd php php-mysql php-mysqlnd php-cli mariadb",
+            "yum -y install httpd php php-mysqlnd php-cli mariadb",
         ]
     },
     "ubuntu_1804_relay": {
@@ -99,6 +100,9 @@ class LXDManager(BaseModule):
         "stop_container": {
             "_desc": "",
             'id': "INTEGER"
+        },
+        "list_templates": {
+            "_desc": ""
         }
         
     } 
@@ -132,16 +136,35 @@ class LXDManager(BaseModule):
                 "rows": new_results,
                 "columns": ['ID', "container_fqdn", "ip_addr", 'template', 'built', 'status']
             } 
+        elif func == "list_templates":
+            template_list = []
+
+            for item in BUILD_SPECIALIZED_IMAGES:
+                template_list.append([item])
+
+            for item in BUILD_BASE_IMAGES:
+                template_list.append([item])
+            return None, {
+                "rows": template_list,
+                "columns": ["template"]
+            }
         elif func == "add_container":
             perror, _ = self.validate_params(self.__FUNCS__['add_container'], kwargs)
             if perror is not None:
                 return perror, None
 
+
             fqdn = kwargs['fqdn']
             ip_addr = kwargs['ip_addr']
             template = kwargs['template']
+            password = kwargs['password']
 
-            dbc.execute('INSERT INTO lxd_container (fqdn, ip_addr, template) VALUES (?, ?, ?, ?)', (fqdn, ip_addr, template))
+            dbc.execute('SELECT * FROM lxd_container WHERE ip_addr=? OR fqdn=?', (ip_addr, fqdn))
+            result = dbc.fetchone()
+            if result:
+                return "A container of that name or IP already exists", None
+
+            dbc.execute('INSERT INTO lxd_container (fqdn, ip_addr, template) VALUES (?, ?, ?)', (fqdn, ip_addr, template))
             self.mm.db.commit()
 
             lxd_id = dbc.lastrowid
@@ -155,7 +178,7 @@ class LXDManager(BaseModule):
             if error is not None:
                 return error, None 
 
-            fqdn_split = fqdn.split(".")
+            container_name = fqdn.replace(".", "-")
 
             if template not in BUILD_BASE_IMAGES and template not in BUILD_SPECIALIZED_IMAGES:
                 return "Unsupported template", None
@@ -166,7 +189,7 @@ class LXDManager(BaseModule):
 
             try:
                 container = self.mm.lxd.containers.create({
-                    'name': fqdn_split[0], 
+                    'name': container_name, 
                     'source': {'type': 'image', 'alias': template},
                     'config': {
 
@@ -183,7 +206,12 @@ class LXDManager(BaseModule):
             except pylxd.exceptions.LXDAPIException as e:
                 return str(e), None
 
-            return self.run("start_container", id=lxd_id)
+            error, _ =  self.run("start_container", id=lxd_id)
+            if error != None:
+                return error, None
+
+            time.sleep(5)
+            return self._lxd_execute(container_name, "echo root:{} | chpasswd".format(password))
         elif func == "remove_container":
             perror, _ = self.validate_params(self.__FUNCS__['start_container'], kwargs)
             if perror is not None:
@@ -200,19 +228,9 @@ class LXDManager(BaseModule):
             fqdn = result[0]
             ip_addr = result[1]
 
-            fqdn_split = fqdn.split(".")
+            container_name = fqdn.replace(".", "-")
 
             self.run('stop_container', id=lxd_id)
-
-            # Remove from database
-            dbc.execute("DELETE FROM lxd_container WHERE lxd_id=?", (lxd_id,))
-            self.mm.db.commit()
-
-            try:
-                container = self.mm.lxd.containers.get(fqdn_split[0])
-                container.delete()
-            except pylxd.exceptions.LXDAPIException as e:
-                return str(e), None
 
             # Remove the IP allocation
             error, _ = self.mm['ipreserve'].run("remove_ip", ip_addr=ip_addr)
@@ -223,6 +241,18 @@ class LXDManager(BaseModule):
             err, _ = self.mm['dns'].run("remove_host", fqdn=fqdn, ip_addr=ip_addr)
             if err is not None:
                 return err, None
+
+            # Remove from database
+            dbc.execute("DELETE FROM lxd_container WHERE lxd_id=?", (lxd_id,))
+            self.mm.db.commit()
+
+            try:
+                container = self.mm.lxd.containers.get(container_name)
+                container.delete()
+            except pylxd.exceptions.LXDAPIException as e:
+                return str(e), None
+
+            
             
             return None, True
         elif func == "start_container":
@@ -240,10 +270,10 @@ class LXDManager(BaseModule):
 
             fqdn = result[0]
 
-            fqdn_split = fqdn.split(".")
+            container_name = fqdn.replace(".", "-")
 
             try:
-                container = self.mm.lxd.containers.get(fqdn_split[0])
+                container = self.mm.lxd.containers.get(container_name)
                 container.start()
             except pylxd.exceptions.LXDAPIException as e:
                 return str(e), None
@@ -265,15 +295,15 @@ class LXDManager(BaseModule):
             server_ip = result[0]
             fqdn = result[1]
 
-            fqdn_split = fqdn.split(".")
+            container_name = fqdn.replace(".", "-")
 
-            container_name = fqdn_split[0]
+
             _, status = self._get_lxd_status(container_name)
             if status[1].lower() == "stopped":
                 return "Container is already stopped", None
 
             try:
-                container = self.mm.lxd.containers.get(fqdn_split[0])
+                container = self.mm.lxd.containers.get(container_name)
                 container.stop()
             except pylxd.exceptions.LXDAPIException as e:
                 return str(e), None
@@ -289,6 +319,17 @@ class LXDManager(BaseModule):
         if dbc.fetchone() is None:
             dbc.execute("CREATE TABLE lxd_container (lxd_id INTEGER PRIMARY KEY, fqdn TEXT, ip_addr TEXT, template TEXT);")
             self.mm.db.commit()
+
+    def _lxd_execute(self, container_name, command):
+        try:
+            container = self.mm.lxd.containers.get(container_name)
+            status, stdout, stderr = container.execute(["/bin/sh", "-c", command])
+            if status != 0:
+                return stdout + "\n---\n" + stderr, None
+            else:
+                return None, stdout
+        except pylxd.exceptions.LXDAPIException as e:
+            return str(e), None
 
     def _build_image(self, image_name, template, switch, commands):
         try:
@@ -363,6 +404,15 @@ class LXDManager(BaseModule):
         self.print("Creating base images...")
         for image_name in BUILD_BASE_IMAGES:
             base_data = BUILD_BASE_IMAGES[image_name]
+            ok = self._build_image(image_name, base_data['template'], BUILD_SWITCH, base_data['commands'])
+            if not ok:
+                lxd_network = self.mm.lxd.networks.get(BUILD_SWITCH)
+                lxd_network.delete()
+                return
+
+        self.print("Creating specialized images...")
+        for image_name in BUILD_SPECIALIZED_IMAGES:
+            base_data = BUILD_SPECIALIZED_IMAGES[image_name]
             ok = self._build_image(image_name, base_data['template'], BUILD_SWITCH, base_data['commands'])
             if not ok:
                 lxd_network = self.mm.lxd.networks.get(BUILD_SWITCH)
