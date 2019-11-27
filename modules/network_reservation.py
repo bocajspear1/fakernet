@@ -57,7 +57,7 @@ class NetReservation(BaseModule):
                 "columns": ["ID", "Range", "Description", "Switch"]
             }
         elif func == "remove_network":
-            perror, _ = self.validate_params(self.__FUNCS__['get_ip_network'], kwargs)
+            perror, _ = self.validate_params(self.__FUNCS__['remove_network'], kwargs)
             if perror is not None:
                 return perror, None
             
