@@ -8,7 +8,7 @@ import docker
 import lib.easyzone as easyzone
 import lib.validate as validate
 
-from lib.base_module import BaseModule
+from lib.base_module import DockerBaseModule
 
 DNS_BASE_DIR = "{}/work/dns".format(os.getcwd())
 
@@ -20,7 +20,7 @@ ZONE_CONFIG_TEMPLATE = """zone "$ZONE" IN {
 
 INSTANCE_TEMPLATE = "dns-server-{}"
 
-class DNSServer(BaseModule):
+class DNSServer(DockerBaseModule):
 
     def __init__(self, mm):
         self.mm = mm

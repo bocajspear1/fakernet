@@ -7,11 +7,11 @@ from OpenSSL import crypto
 import requests
 
 import lib.validate as validate
-from lib.base_module import BaseModule
+from lib.base_module import DockerBaseModule
 
 INSTANCE_TEMPLATE = "bepasty-server-{}"
 
-class BePastyServer(BaseModule):
+class BePastyServer(DockerBaseModule):
 
     def __init__(self, mm):
         self.mm = mm

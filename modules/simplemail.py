@@ -7,13 +7,13 @@ from OpenSSL import crypto
 import requests
 
 import lib.validate as validate
-from lib.base_module import BaseModule
+from lib.base_module import DockerBaseModule
 
 
 SERVER_BASE_DIR = "{}/work/simplemail".format(os.getcwd())
 INSTANCE_TEMPLATE = "simplemail-server-{}"
 
-class SimpleMailServer(BaseModule):
+class SimpleMailServer(DockerBaseModule):
 
     def __init__(self, mm):
         self.mm = mm

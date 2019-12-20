@@ -19,6 +19,12 @@ class NetReservation(BaseModule):
             "_desc": "Get network reservation info",
             "ip_id": "INT"
         },
+        "add_hop_network": {
+            "_desc": "Add network allocation",
+            "net_addr": "IP_NETWORK",
+            "description": "TEXT",
+            "switch": "TEXT"
+        },
         "add_network": {
             "_desc": "Add network allocation",
             "net_addr": "IP_NETWORK",
@@ -79,6 +85,58 @@ class NetReservation(BaseModule):
                 return "Switch not found for LXD", None
 
             return None, True
+
+        elif func == "add_hop_network":
+            perror, _ = self.validate_params(self.__FUNCS__[func], kwargs)
+            if perror is not None:
+                return perror, None
+            
+            new_network = kwargs['net_addr']
+            switch = kwargs['switch']
+            description = "HOP NETWORK: " + kwargs['description']
+
+            if validate.is_ipnetwork(new_network):
+                # Check if the network already exists
+                dbc.execute("SELECT * FROM networks;") 
+                results = dbc.fetchall()
+
+                new_network_obj = ipaddress.ip_network(new_network)
+
+                for network in results:
+                    network_obj = ipaddress.ip_network(network[1])
+                    if new_network_obj.overlaps(network_obj):
+                        return "{} network is already part of network {}".format(new_network, str(new_network_obj)), None
+
+                # Insert our new network
+                dbc.execute('INSERT INTO networks (net_address, net_desc, switch_name) VALUES (?, ?, ?)', (new_network, description, switch))
+                self.mm.db.commit()
+
+                if switch == "":
+                    return "Switch name is blank", None
+                
+                # Ensure the switch exists
+                try:
+                    subprocess.check_output(["/usr/bin/sudo", "/usr/bin/ovs-vsctl", "br-exists", switch])
+                except:
+                    
+                    network_hosts = list(new_network_obj.hosts())
+
+                    lxd_net_config = {
+                        'ipv4.address': str(network_hosts[len(network_hosts)-1]) + "/" + str(new_network_obj.prefixlen),
+                        'ipv4.nat': 'false',
+                        'bridge.driver': 'openvswitch',
+                        'ipv4.dhcp.ranges': str(network_hosts[0]) + "-" + str(network_hosts[len(network_hosts)-2]),
+                        'ipv4.dhcp.gateway': str(network_hosts[0])
+                    }
+
+                    # If we have a base dns server, set the networks DNS server
+                    error, server_data = self.mm['dns'].run("get_server", id=1)
+                    if error is None:
+                        lxd_net_config['raw.dnsmasq'] = 'dhcp-option=option:dns-server,{}'.format(server_data['server_ip'])
+
+                    self.mm.lxd.networks.create(switch, config=lxd_net_config)
+
+                return None, True
 
         elif func == "add_network":
             perror, _ = self.validate_params(self.__FUNCS__['add_network'], kwargs)

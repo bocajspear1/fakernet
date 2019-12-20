@@ -7,7 +7,7 @@ from OpenSSL import crypto
 import requests
 
 import lib.validate as validate
-from lib.base_module import BaseModule
+from lib.base_module import DockerBaseModule
 
 CA_IMAGE_NAME = ""
 CA_BASE_DIR = "{}/work/minica".format(os.getcwd())
@@ -20,7 +20,7 @@ DEFAULT_DIV = "Servers"
 
 INSTANCE_TEMPLATE = "minica-server-{}"
 
-class MiniCAServer(BaseModule):
+class MiniCAServer(DockerBaseModule):
 
     def __init__(self, mm):
         self.mm = mm

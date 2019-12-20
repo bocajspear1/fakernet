@@ -1,7 +1,7 @@
 import shlex
 import time
 
-from lib.base_module import BaseModule
+from lib.base_module import LXDBaseModule
 import lib.validate as validate
 
 import pylxd
@@ -73,7 +73,7 @@ BUILD_SPECIALIZED_IMAGES = {
     },
 }
 
-class LXDManager(BaseModule):
+class LXDManager(LXDBaseModule):
 
     def __init__(self, mm):
         self.mm = mm
@@ -111,12 +111,6 @@ class LXDManager(BaseModule):
     __DESC__ = "Module for LXD containers"
     __AUTHOR__ = "Jacob Hartman"
 
-    def _get_lxd_status(self, container_name):
-        try:
-            container = self.mm.lxd.containers.get(container_name)
-            return None, ("yes", container.state().status)
-        except pylxd.exceptions.LXDAPIException:
-            return None, ("no", "unknown")
 
     def run(self, func, **kwargs) :
         dbc = self.mm.db.cursor()
@@ -127,7 +121,7 @@ class LXDManager(BaseModule):
             for row in results:
                 new_row = list(row)
                 container_name = row[1].split(".")[0]
-                _, status = self._get_lxd_status(container_name)
+                _, status = self.lxd_get_status(container_name)
                 new_row.append(status[0])
                 new_row.append(status[1])
                 new_results.append(new_row)
@@ -211,7 +205,7 @@ class LXDManager(BaseModule):
                 return error, None
 
             time.sleep(5)
-            return self._lxd_execute(container_name, "echo root:{} | chpasswd".format(password))
+            return self.lxd_execute(container_name, "echo root:{} | chpasswd".format(password))
         elif func == "remove_container":
             perror, _ = self.validate_params(self.__FUNCS__['start_container'], kwargs)
             if perror is not None:
@@ -298,7 +292,7 @@ class LXDManager(BaseModule):
             container_name = fqdn.replace(".", "-")
 
 
-            _, status = self._get_lxd_status(container_name)
+            _, status = self.lxd_get_status(container_name)
             if status[1].lower() == "stopped":
                 return "Container is already stopped", None
 
@@ -320,60 +314,7 @@ class LXDManager(BaseModule):
             dbc.execute("CREATE TABLE lxd_container (lxd_id INTEGER PRIMARY KEY, fqdn TEXT, ip_addr TEXT, template TEXT);")
             self.mm.db.commit()
 
-    def _lxd_execute(self, container_name, command):
-        try:
-            container = self.mm.lxd.containers.get(container_name)
-            status, stdout, stderr = container.execute(["/bin/sh", "-c", command])
-            if status != 0:
-                return stdout + "\n---\n" + stderr, None
-            else:
-                return None, stdout
-        except pylxd.exceptions.LXDAPIException as e:
-            return str(e), None
-
-    def _build_image(self, image_name, template, switch, commands):
-        try:
-            self.mm.lxd.images.get_by_alias(image_name)
-        except pylxd.exceptions.NotFound:
-            container_name = (image_name + "_temp").replace("_", "-")
-
-            self.print("Building {}".format(image_name))
-            temp_container = self.mm.lxd.containers.create({
-                'name': container_name, 
-                'source': {'type': 'image', 'alias': template},
-                'config': {
-
-                },
-                "devices": {
-                    "eth0": {
-                        "type": "nic",
-                        "nictype": "bridged",
-                        "parent": switch
-                    }
-                },
-            }, wait=True)
-
-            temp_container.start(wait=True)
-            status, stdout, stderr = temp_container.execute(["/bin/sh", "-c", "sleep 5"])
-            for command in commands:
-                self.print("Ran: " + command)
-                status, stdout, stderr = temp_container.execute(["/bin/sh", "-c", command])
-                if status != 0:
-                    self.print("Command failed!")
-                    self.print(stdout)
-                    self.print(stderr)
-                    temp_container.stop(wait=True)
-                    temp_container.delete(wait=True)
-
-                    return False
-
-            temp_container.stop(wait=True)
-
-            image = temp_container.publish(wait=True)
-            image.add_alias(name=image_name, description=image_name)
-            temp_container.delete(wait=True)
-        return True
-
+    
     def build(self):
 
         self.print("Pulling down LXC images...")
@@ -404,7 +345,7 @@ class LXDManager(BaseModule):
         self.print("Creating base images...")
         for image_name in BUILD_BASE_IMAGES:
             base_data = BUILD_BASE_IMAGES[image_name]
-            ok = self._build_image(image_name, base_data['template'], BUILD_SWITCH, base_data['commands'])
+            ok = self.lxd_build_image(image_name, base_data['template'], BUILD_SWITCH, base_data['commands'])
             if not ok:
                 lxd_network = self.mm.lxd.networks.get(BUILD_SWITCH)
                 lxd_network.delete()
@@ -413,7 +354,7 @@ class LXDManager(BaseModule):
         self.print("Creating specialized images...")
         for image_name in BUILD_SPECIALIZED_IMAGES:
             base_data = BUILD_SPECIALIZED_IMAGES[image_name]
-            ok = self._build_image(image_name, base_data['template'], BUILD_SWITCH, base_data['commands'])
+            ok = self.lxd_build_image(image_name, base_data['template'], BUILD_SWITCH, base_data['commands'])
             if not ok:
                 lxd_network = self.mm.lxd.networks.get(BUILD_SWITCH)
                 lxd_network.delete()
@@ -434,7 +375,7 @@ class LXDManager(BaseModule):
             new_data = ["lxd"]
             new_data += [container[0], container[1], container[2]]
             container_name = container[2].split(".")[0]
-            _, status = self._get_lxd_status(container_name)
+            _, status = self.lxd_get_status(container_name)
             new_data += status[1]
             new_list.append(new_data)
         return new_list

@@ -2,6 +2,7 @@ import subprocess
 import os
 
 import docker
+import pylxd
 
 class BaseModule():
     __SHORTNAME__ = ""
@@ -98,6 +99,14 @@ class BaseModule():
                     return "'{}' not set".format(item), None
         
         return None, True
+
+
+class DockerBaseModule(BaseModule):
+
+    class Holder():
+        docker = docker.from_env()
+
+    mm = Holder()
 
     def ovs_set_ip(self, container, bridge, interface, ip_addr, gateway):
         subprocess.check_output(["/usr/bin/sudo", "/usr/bin/ovs-docker", "add-port", bridge, interface, container, "--ipaddress={}".format(ip_addr), "--gateway={}".format(gateway)])
@@ -208,3 +217,74 @@ class BaseModule():
         ca_cert.close()
 
         return None, True
+
+class LXDBaseModule(BaseModule):
+    class Holder():
+        
+        lxd = None
+        def __init__(self):
+            from pylxd import Client
+            self.lxd = Client()
+
+    mm = Holder()
+
+    def lxd_execute(self, container_name, command):
+        try:
+            container = self.mm.lxd.containers.get(container_name)
+            status, stdout, stderr = container.execute(["/bin/sh", "-c", command])
+            if status != 0:
+                return stdout + "\n---\n" + stderr, None
+            else:
+                return None, stdout
+        except pylxd.exceptions.LXDAPIException as e:
+            return str(e), None
+
+    def lxd_build_image(self, image_name, template, switch, commands):
+        try:
+            self.mm.lxd.images.get_by_alias(image_name)
+        except pylxd.exceptions.NotFound:
+            container_name = (image_name + "_temp").replace("_", "-")
+
+            self.print("Building {}".format(image_name))
+            temp_container = self.mm.lxd.containers.create({
+                'name': container_name, 
+                'source': {'type': 'image', 'alias': template},
+                'config': {
+
+                },
+                "devices": {
+                    "eth0": {
+                        "type": "nic",
+                        "nictype": "bridged",
+                        "parent": switch
+                    }
+                },
+            }, wait=True)
+
+            temp_container.start(wait=True)
+            status, stdout, stderr = temp_container.execute(["/bin/sh", "-c", "sleep 5"])
+            for command in commands:
+                self.print("Ran: " + command)
+                status, stdout, stderr = temp_container.execute(["/bin/sh", "-c", command])
+                if status != 0:
+                    self.print("Command failed!")
+                    self.print(stdout)
+                    self.print(stderr)
+                    temp_container.stop(wait=True)
+                    temp_container.delete(wait=True)
+
+                    return False
+
+            temp_container.stop(wait=True)
+
+            image = temp_container.publish(wait=True)
+            image.add_alias(name=image_name, description=image_name)
+            temp_container.delete(wait=True)
+        return True
+
+    def lxd_get_status(self, container_name):
+        try:
+            container = self.mm.lxd.containers.get(container_name)
+            return None, ("yes", container.state().status)
+        except pylxd.exceptions.LXDAPIException:
+            return None, ("no", "unknown")

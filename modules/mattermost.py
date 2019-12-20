@@ -7,13 +7,13 @@ from OpenSSL import crypto
 import requests
 
 import lib.validate as validate
-from lib.base_module import BaseModule
+from lib.base_module import DockerBaseModule
 
 SERVER_BASE_DIR = "{}/work/mattermost".format(os.getcwd())
 
 INSTANCE_TEMPLATE = "mattermost-server-{}"
 
-class MattermostServer(BaseModule):
+class MattermostServer(DockerBaseModule):
 
     def __init__(self, mm):
         self.mm = mm
