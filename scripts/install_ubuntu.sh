@@ -8,7 +8,10 @@ if [ ! -f ./fnconsole ]; then
     exit 1
 fi
 
-echo -e "User ${CURRENT_USER} (${CURRENT_UID}) will be the user configured to run FakerNet..."
+echo "User ${CURRENT_USER} (${CURRENT_UID}) will be the user configured to run FakerNet..."
+echo "They will be able to run lxd commands, Docker commands, iptables, ovs-vsctl, and ovs-docker without a password!"
+echo "Be sure you want them to have essentially root access when on a shell!"
+echo "(Keep the user secure!)"
 read -p "Type 'yes' to continue> " ok
 
 if [[ "$ok" != "yes" ]]; then
@@ -32,13 +35,22 @@ sudo apt-get install -y docker-ce docker-ce-cli containerd.io
 echo "Installing other dependencies..."
 sudo apt-get install -y openvswitch-switch lxd python3-venv python3-pip quagga 
 
-echo "Adding current user to 'docker' group..."
+echo "Adding current user to 'quaggavty' group..."
+sudo usermod -a -G quaggavty $CURRENT_USER
 
+echo "Adding current user to 'docker' group..."
 sudo usermod -a -G docker $CURRENT_USER
 
 echo "Configuring Docker to not be privileged..."
 echo -e "{\n    \"userns-remap\": \"default\"\n}" | sudo tee /etc/docker/daemon.json
 sudo systemctl restart docker
+
+echo "Doing sudo configuration..."
+echo "${CURRENT_USER} ALL=(ALL) NOPASSWD: /sbin/iptables" >> /tmp/.fn_sudo
+echo "${CURRENT_USER} ALL=(ALL) NOPASSWD: /usr/bin/ovs-vsctl" >> /tmp/.fn_sudo
+echo "${CURRENT_USER} ALL=(ALL) NOPASSWD: /usr/bin/ovs-docker" >> /tmp/.fn_sudo
+sudo mv /tmp/.fn_sudo /etc/sudoers.d/FakerNet
+sudo chmod 440 /etc/sudoers.d/FakerNet
 
 echo "Configuring subuid/subgid..."
 echo "dockremap:${CURRENT_UID}:1" > /tmp/.temp_subuid
