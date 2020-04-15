@@ -1,5 +1,6 @@
 import ipaddress
 import subprocess 
+import time
 
 import pylxd.exceptions
 
@@ -9,6 +10,7 @@ import lib.validate as validate
 INSTANCE_TEMPLATE = "nethop-{}"
 PULL_SERVER = "https://images.linuxcontainers.org"
 TEMPLATE_NAME = "hop_alpine_310"
+PRETEMPLATE_NAME = "alpine_310"
 
 class NetReservation(LXDBaseModule):
 
@@ -26,6 +28,10 @@ class NetReservation(LXDBaseModule):
             "net_addr": "IP_NETWORK",
             "description": "TEXT",
             "switch": "TEXT"
+        },
+        "remove_network_hop": {
+            "_desc": "Remove a network hop",
+            'id': "INTEGER"
         },
         "start_hop": {
             "_desc": "",
@@ -63,7 +69,7 @@ class NetReservation(LXDBaseModule):
 
             dbc.execute("SELECT hop_id FROM nethop WHERE fqdn=? OR front_ip=?", (fqdn,front_ip))
             if dbc.fetchone():
-                return "A Mattermost server already exists of that FQDN or mail domain", None
+                return "A hop server already exists of that FQDN or IP", None
 
             # See if the switch for the front ip exists
             error, front_switch = self.mm['netreserve'].run("get_ip_switch", ip_addr=front_ip)
@@ -126,7 +132,60 @@ class NetReservation(LXDBaseModule):
             if error != None:
                 return error, None
 
+            time.sleep(5)
+            self.lxd_execute(container_name, "echo router rip >> /etc/quagga/ripd.conf")
+            self.lxd_execute(container_name, " network eth0 >> /etc/quagga/ripd.conf")
+            self.lxd_execute(container_name, " network eth1 >> /etc/quagga/ripd.conf")
+
             return None, True
+
+        elif func == "remove_network_hop":
+            perror, _ = self.validate_params(self.__FUNCS__[func], kwargs)
+            if perror is not None:
+                return perror, None 
+
+            hop_id = kwargs['id']
+            container_name = INSTANCE_TEMPLATE.format(hop_id)
+
+            dbc.execute("SELECT front_ip, fqdn, switch_name FROM nethop WHERE hop_id=?", (hop_id,))
+            result = dbc.fetchone()
+            if not result:
+                return "The hop does not exist", None
+
+            front_ip = result[0]
+            fqdn = result[1]
+            switch_name = result[2]
+
+            # Deallocate our IP address
+            error, _ = self.mm['ipreserve'].run("remove_ip", ip_addr=front_ip)
+            # if error is not None:
+            #     return error, None
+
+            # Remove the host from the DNS server
+            err, _ = self.mm['dns'].run("remove_host", fqdn=fqdn, ip_addr=front_ip)
+            # if err is not None:
+            #     return err, None
+
+            # Delete the hop container itself
+            try:
+                container = self.mm.lxd.containers.get(container_name)
+                container.stop()
+                container.delete()
+            except pylxd.exceptions.LXDAPIException as e:
+                return str(e), None
+
+            time.sleep(2)
+
+            # Remove the container from the database
+            dbc.execute("DELETE FROM nethop WHERE hop_id=?", (hop_id,))
+            self.mm.db.commit()
+
+            # Delete the switch if possible
+            err, network_data = self.mm['netreserve'].run("get_network_by_switch", switch=switch_name)
+            if err is not None:
+                return err, None
+
+            return self.mm['netreserve'].run("remove_network", id=network_data[0])
 
         elif func == "start_hop":
             perror, _ = self.validate_params(self.__FUNCS__[func], kwargs)
@@ -143,7 +202,7 @@ class NetReservation(LXDBaseModule):
                 return str(e), None
 
             return None, True
-        elif func == "stop_container":
+        elif func == "stop_hop":
             perror, _ = self.validate_params(self.__FUNCS__['stop_container'], kwargs)
             if perror is not None:
                 return perror, None
@@ -180,7 +239,7 @@ class NetReservation(LXDBaseModule):
         remote_name = "alpine/3.10"
 
         try:
-            self.mm.lxd.images.get_by_alias(TEMPLATE_NAME)
+            self.mm.lxd.images.get_by_alias(PRETEMPLATE_NAME)
         except pylxd.exceptions.NotFound:
 
             self.print("Pulling in {} - {}".format(PULL_SERVER, remote_name))
@@ -191,30 +250,31 @@ class NetReservation(LXDBaseModule):
                 if alias['name'] == TEMPLATE_NAME:
                     found = True
             if not found:
-                image.add_alias(name=TEMPLATE_NAME, description=TEMPLATE_NAME)
+                image.add_alias(name=PRETEMPLATE_NAME, description=PRETEMPLATE_NAME)
 
-        # lxd_net_config = {
-        #     'ipv4.address': "10.100.10.1/24",
-        #     'ipv4.nat': 'true',
-        #     'ipv4.dhcp': 'true'
-        # }
+        lxd_net_config = {
+            'ipv4.address': "10.100.10.1/24",
+            'ipv4.nat': 'true',
+            'ipv4.dhcp': 'true'
+        }
 
-        # BUILD_SWITCH = "buildnet0"
-        # self.mm.lxd.networks.create(BUILD_SWITCH, config=lxd_net_config)
+        BUILD_SWITCH = "buildnet0"
+        self.mm.lxd.networks.create(BUILD_SWITCH, config=lxd_net_config)
 
-        # hop_commands = [
-        #     "apk add quagga openssh-server",
-        #     "echo ' >> /etc/network/interfaces",
-        #     "echo 'auto eth1' >> /etc/network/interfaces",
-        #     "echo 'iface eth1 inet dhcp' >> /etc/network/interfaces",
-        #     "echo 'PermitRootLogin yes' >> /etc/ssh/sshd_config",
-        #     "service ssh restart"
-        # ]
+        hop_commands = [
+            "apk add quagga openssh-server",
+            "echo '' >> /etc/network/interfaces",
+            "echo 'auto eth1' >> /etc/network/interfaces",
+            "echo 'iface eth1 inet dhcp' >> /etc/network/interfaces",
+            "echo 'PermitRootLogin yes' >> /etc/ssh/sshd_config"
+        ]
 
-        # ok = self._build_image(image_name, base_data['template'], BUILD_SWITCH, hop_commands)
+        ok = self.lxd_build_image(TEMPLATE_NAME, PRETEMPLATE_NAME, BUILD_SWITCH, hop_commands)
+        if not ok:
+            print(ok)
 
-        # lxd_network = self.mm.lxd.networks.get(BUILD_SWITCH)
-        # lxd_network.delete()
+        lxd_network = self.mm.lxd.networks.get(BUILD_SWITCH)
+        lxd_network.delete()
 
     def get_list(self):
         dbc = self.mm.db.cursor()

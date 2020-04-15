@@ -39,6 +39,10 @@ class NetReservation(BaseModule):
             "_desc": "Get the switch for a network",
             "net_addr": "IP_NETWORK"
         },
+        "get_network_by_switch": {
+            "_desc": "Get the switch for a network",
+            "switch": "TEXT"
+        },
         "get_ip_switch": {
             "_desc": "Get the switch for a network",
             "ip_addr": "IP"
@@ -63,7 +67,7 @@ class NetReservation(BaseModule):
                 "columns": ["ID", "Range", "Description", "Switch"]
             }
         elif func == "remove_network":
-            perror, _ = self.validate_params(self.__FUNCS__['remove_network'], kwargs)
+            perror, _ = self.validate_params(self.__FUNCS__[func], kwargs)
             if perror is not None:
                 return perror, None
             
@@ -94,6 +98,10 @@ class NetReservation(BaseModule):
             new_network = kwargs['net_addr']
             switch = kwargs['switch']
             description = "HOP NETWORK: " + kwargs['description']
+
+            dbc.execute("SELECT * FROM networks WHERE switch_name=?", (switch,))
+            if dbc.fetchone():
+                return "Switch of that name already exists", None
 
             if validate.is_ipnetwork(new_network):
                 # Check if the network already exists
@@ -145,6 +153,10 @@ class NetReservation(BaseModule):
 
             new_network = kwargs['net_addr']
 
+            dbc.execute("SELECT * FROM networks WHERE switch_name=?", (switch,))
+            if dbc.fetchone():
+                return "Switch of that name already exists", None
+
             if validate.is_ipnetwork(new_network):
                 # Check if the network already exists
                 dbc.execute("SELECT * FROM networks;") 
@@ -189,6 +201,20 @@ class NetReservation(BaseModule):
                 return "Invalid network address", None
         elif func == "get_network_switch":
             pass
+        elif func == "get_network_by_switch":
+            perror, _ = self.validate_params(self.__FUNCS__[func], kwargs)
+            if perror is not None:
+                return perror, None
+
+            switch = kwargs['switch']
+
+            dbc.execute("SELECT net_id, net_address, net_desc, switch_name FROM networks WHERE switch_name=?", (switch,))
+            result = dbc.fetchone()
+            if not result:
+                return "Switch does not exist", None
+
+            return None, result
+
         elif func == "get_ip_switch":
             perror, _ = self.validate_params(self.__FUNCS__['get_ip_switch'], kwargs)
             if perror is not None:
