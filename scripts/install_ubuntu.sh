@@ -51,6 +51,7 @@ echo "${CURRENT_USER} ALL=(ALL) NOPASSWD: /usr/bin/ovs-vsctl" >> /tmp/.fn_sudo
 echo "${CURRENT_USER} ALL=(ALL) NOPASSWD: /usr/bin/ovs-docker" >> /tmp/.fn_sudo
 sudo mv /tmp/.fn_sudo /etc/sudoers.d/FakerNet
 sudo chmod 440 /etc/sudoers.d/FakerNet
+sudo chown root:root /etc/sudoers.d/FakerNet
 
 echo "Configuring subuid/subgid..."
 echo "dockremap:${CURRENT_UID}:1" > /tmp/.temp_subuid

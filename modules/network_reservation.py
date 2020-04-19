@@ -152,6 +152,8 @@ class NetReservation(BaseModule):
                 return perror, None
 
             new_network = kwargs['net_addr']
+            switch = kwargs['switch']
+            description = kwargs['description']
 
             dbc.execute("SELECT * FROM networks WHERE switch_name=?", (switch,))
             if dbc.fetchone():
@@ -170,9 +172,11 @@ class NetReservation(BaseModule):
                         return "{} network is already part of network {}".format(new_network, str(new_network_obj)), None
 
                 # Insert our new network
-                switch = kwargs['switch']
-                dbc.execute('INSERT INTO networks (net_address, net_desc, switch_name) VALUES (?, ?, ?)', (new_network, kwargs['description'], switch))
+                
+                dbc.execute('INSERT INTO networks (net_address, net_desc, switch_name) VALUES (?, ?, ?)', (new_network, description, switch))
                 self.mm.db.commit()
+
+                network_id = dbc.lastrowid
 
                 # A blank switch means we don't want one
                 if switch != "":
@@ -196,7 +200,7 @@ class NetReservation(BaseModule):
 
                     
 
-                return None, True
+                return None, network_id
             else:
                 return "Invalid network address", None
         elif func == "get_network_switch":
