@@ -10,8 +10,9 @@ options {
                 none;
         };
 
-        // If you have problems and are behind a firewall:
-        //query-source address * port 53;
+        // Because we may override existing DNS stuff, disable DNSSEC globally
+        dnssec-enable no;
+        dnssec-validation no;
 
         pid-file "/var/run/named/named.pid";
 

@@ -3,6 +3,8 @@ import os
 import sys
 import subprocess
 
+from constants import *
+
 parentdir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(parentdir)
 
@@ -19,7 +21,7 @@ class TestBasics(unittest.TestCase):
     def setUp(self):
         # Clean the slate!
         self.docker = docker.from_env()
-        docker_running = self.docker.containers.list()
+        docker_running = self.docker.containers.list(all=True)
         for cont in docker_running:
             cont.stop()
             cont.remove()
@@ -57,7 +59,7 @@ class TestBasics(unittest.TestCase):
         self.assertTrue(error == None)
 
         self.mm['dns'].check()
-        error, result = self.mm['dns'].run("add_server", ip_addr="172.16.3.2", description="test_dns", domain="test")
+        error, result = self.mm['dns'].run("add_server", ip_addr=TEST_DNS_ROOT, description="test_dns", domain="test")
         self.assertTrue(error == None)
         error, result = self.mm['dns'].run("add_zone", id=1, direction="fwd", zone="test")
         self.assertTrue(error == None)

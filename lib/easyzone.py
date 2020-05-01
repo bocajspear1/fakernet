@@ -18,6 +18,7 @@ __version__ = '1.2.3'
 # - Python Modules -
 from time import localtime, strftime, time
 import types
+import os
 
 # - dnspython Modules - http://www.dnspython.org/
 try:
@@ -299,10 +300,16 @@ class Zone(object):
             if new_serial <= soa.serial:
                 new_serial = soa.serial + 1
             soa.serial = new_serial
+            
         
         if not filename:
             filename = self.filename
-        self._zone.to_file(filename, relativize=False)
+        outtext = self._zone.to_text(relativize=False)
+
+        os.remove(filename)
+        outfile = open(filename, "wb+")
+        outfile.write(outtext)
+        outfile.close()
     
 
 

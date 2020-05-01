@@ -1,5 +1,6 @@
 import os
 import shutil 
+import time
 from string import Template
 
 import dns.reversename
@@ -15,6 +16,13 @@ DNS_BASE_DIR = "{}/work/dns".format(os.getcwd())
 ZONE_CONFIG_TEMPLATE = """zone "$ZONE" IN {
     type master;
     file "$PATH";
+};
+"""
+
+ZONE_FORWARDING_CONFIG_TEMPLATE = """zone "$ZONE" {
+    type forward;
+    forward only;
+    forwarders { $FORWARDER; };
 };
 """
 
@@ -113,6 +121,24 @@ class DNSServer(DockerBaseModule):
             "_desc": "Remove forwarder from DNS server",
             "id": "INTEGER",
             "ip_addr": "IP_ADDR"
+        },
+        "smart_add_subdomain_server": {
+            "_desc": "Add subdomain server, automatically setting up root server to point to it",
+            "fqdn": "TEXT",
+            "ip_addr": "IP_ADDR"
+        },
+        "smart_remove_subdomain_server": {
+            "_desc": "Remove subdomain server, automatically deleting entries in the parent server",
+            "id": "INTEGER"
+        },
+        "smart_add_root_server": {
+            "_desc": "Add a new root domain server (e.g. .com or .net), automatically setting up root server to point to it",
+            "root_name": "TEXT",
+            "ip_addr": "IP_ADDR"
+        },
+        "smart_remove_root_server": {
+            "_desc": "Remove root domain server (e.g. .com or .net), automatically deleting entries in the parent server",
+            "id": "INTEGER"
         }
     } 
 
@@ -140,6 +166,24 @@ class DNSServer(DockerBaseModule):
             del fqdn_split[len(fqdn_split)-1]
         zone = ".".join(fqdn_split[1:])
         return hostname, zone
+
+    def _add_forwarding_zone(self, dns_server_id, zone, forwarder):
+
+        dns_config_path = "{}/{}".format(DNS_BASE_DIR, dns_server_id)
+
+        zone_config_path = "{}/conf/forward-{}.conf".format(dns_config_path, zone)
+
+        t = Template(ZONE_FORWARDING_CONFIG_TEMPLATE) 
+        config_file = open(zone_config_path, "w+")
+        config_file.write(t.substitute({'ZONE' : zone, 'FORWARDER': forwarder})) 
+        config_file.close()
+
+        main_config_contents = open(dns_config_path + "/named.conf", "r").read()
+        if not "include \"/etc/bind/conf/{}.conf\";\n".format(zone) in main_config_contents:
+            main_config_file = open(dns_config_path + "/named.conf", "a")
+            main_config_file.write("\ninclude \"/etc/bind/conf/forward-{}.conf\";\n".format(zone))
+
+        return None, True
 
     def _add_zone(self, dns_server_id, zone, direction):
         if direction != "fwd" and direction != "rev":
@@ -305,6 +349,7 @@ class DNSServer(DockerBaseModule):
 
     def _rndc_reload(self, dns_server_id):
         try:
+            time.sleep(2)
             container = self.mm.docker.containers.get(INSTANCE_TEMPLATE.format(dns_server_id))
             code, output = container.exec_run("rndc reload")
             if code != 0:
@@ -447,7 +492,7 @@ class DNSServer(DockerBaseModule):
                 network.config['raw.dnsmasq'] = 'dhcp-option=option:dns-server,{}'.format(server_ip) 
                 network.save()
 
-            return None, True           
+            return None, dns_server_id           
         elif func == "add_zone":
             perror, _ = self.validate_params(self.__FUNCS__['add_zone'], kwargs)
             if perror is not None:
@@ -481,7 +526,6 @@ class DNSServer(DockerBaseModule):
                 return "Could not find a parent domain for {}".format(fqdn), None 
 
             first, zone = self._split_fqdn(fqdn)
-
             dns_config_path = "{}/{}".format(DNS_BASE_DIR, dns_server_id)
             zone_path = "{}/zones/{}.{}".format(dns_config_path, zone, direction)
 
@@ -558,6 +602,7 @@ class DNSServer(DockerBaseModule):
             ns = zone.names[name].records(record_type, create=True)
             ns.add(value)
             zone.save(autoserial=True)
+            
 
             return self._rndc_reload(dns_server_id)        
         elif func == "remove_record":
@@ -731,6 +776,150 @@ class DNSServer(DockerBaseModule):
             self._write_forwarders_file(forwarder_conf, forwarders)
 
             return self._rndc_reload(dns_server_id)
+        elif func == "smart_add_subdomain_server":
+            perror, _ = self.validate_params(self.__FUNCS__['smart_add_subdomain_server'], kwargs)
+            if perror is not None:
+                return perror, None
+
+            fqdn = kwargs['fqdn']
+            ip_addr = kwargs['ip_addr']
+
+            found = False
+            counter = 0
+            fqdn_split = fqdn.split(".")
+            found_domain = ""
+            parent_server_id = None
+
+            while found == False and counter < len(fqdn_split):
+                search_domain = '.'.join(fqdn_split[counter:])
+                parent_server_id = self._get_dns_server(search_domain)
+                if parent_server_id is not None:
+                    found = True
+                    search_split = search_domain.split(".")
+                    
+                    found_domain = '.'.join(search_split[1:])
+                counter += 1
+
+            if found == False:
+                return "Could not find a parent domain for {}".format(fqdn), None 
+
+            error, new_server_id = self.run('add_server', ip_addr=ip_addr, description="Automatically generated subdomain server for {}".format(fqdn), domain=fqdn)
+            if error is not None:
+                return error, None
+
+            zerror, _ = self.run('add_zone', id=new_server_id, direction="fwd", zone=fqdn)
+            if zerror is not None:
+                return zerror, None
+
+            if not fqdn.endswith("."):
+                fqdn = fqdn + "."
+            ns_name = "ns1.{}".format(fqdn)
+            
+            rerror, _ = self.run("add_record", id=parent_server_id, zone=found_domain, direction="fwd", type='NS', name=fqdn, value=ns_name)
+            if rerror is not None:
+                return rerror, None
+
+            rerror, _ = self.run("add_record", id=parent_server_id, zone=found_domain, direction="fwd", type='A', name=ns_name, value=ip_addr)
+            if rerror is not None:
+                return rerror, None
+
+            error, _ = self._rndc_reload(new_server_id)
+            if error is not None:
+                return error, None
+            error, _ = self._rndc_reload(parent_server_id)
+            if error is not None:
+                return error, None
+
+            return None, new_server_id
+        elif func == "smart_remove_subdomain_server":
+            perror, _ = self.validate_params(self.__FUNCS__['smart_remove_subdomain_server'], kwargs)
+            if perror is not None:
+                return perror, None
+            
+            dns_server_id = kwargs['id']
+            dbc.execute("SELECT server_ip,server_domain FROM dns_server WHERE server_id=?", (dns_server_id,))
+            result = dbc.fetchone()
+            if not result:
+                return "DNS server does not exist", None
+
+            ip_addr = result[0]
+            server_domain = result[1]
+
+            # Remove the server
+            derror,_ = self.run("remove_server", id=dns_server_id)
+            if derror is not None:
+                return derror, None
+
+            # Find the parent server, this will now go to the parent since the child server has been deleted
+            found = False
+            counter = 0
+            fqdn_split = server_domain.split(".")
+            found_domain = ""
+            parent_server_id = None
+
+            while found == False and counter < len(fqdn_split):
+                search_domain = '.'.join(fqdn_split[counter:])
+                parent_server_id = self._get_dns_server(search_domain)
+                if parent_server_id is not None:
+                    found = True
+                    search_split = search_domain.split(".")
+                    found_domain = '.'.join(search_split[1:])
+                counter += 1
+
+            if not server_domain.endswith("."):
+                server_domain = server_domain + "."
+            ns_name = "ns1.{}".format(server_domain)
+            
+            rerror, _ = self.run("remove_record", id=parent_server_id, zone=found_domain, direction="fwd", type='NS', name=server_domain, value=ns_name)
+            if rerror is not None:
+                return rerror, None
+
+            rerror, _ = self.run("remove_record", id=parent_server_id, zone=found_domain, direction="fwd", type='A', name=ns_name, value=ip_addr)
+            if rerror is not None:
+                return rerror, None
+
+            error, _ = self._rndc_reload(parent_server_id)
+            if error is not None:
+                return error, None
+            
+            return None, True
+        elif func == "smart_add_root_server":
+            perror, _ = self.validate_params(self.__FUNCS__['smart_add_root_server'], kwargs)
+            if perror is not None:
+                return perror, None
+
+            root_name = kwargs['root_name']
+            ip_addr = kwargs['ip_addr']
+
+            print(root_name)
+            if len(root_name.split(".")) > 2 or (len(root_name.split(".")) == 2 and not root_name.endswith(".")):
+                return "root_name should be a new root domain (e.g. .net or .com), not a fqdn", None
+            
+            # Add the new root domain server
+            error, new_server_id = self.run('add_server', ip_addr=ip_addr, description="Automatically generated root server for {}".format(root_name), domain=root_name)
+            if error is not None:
+                return error, None
+
+            # Add the root domain zone to new server
+            zerror, _ = self.run('add_zone', id=new_server_id, direction="fwd", zone=root_name)
+            if zerror is not None:
+                return zerror, None
+
+            ferror, _ = self._add_forwarding_zone(1, root_name, ip_addr)
+            if ferror is not None:
+                return ferror, None
+
+            error, _ = self._rndc_reload(1)
+            if error is not None:
+                return error, None
+            
+            error, _ = self._rndc_reload(new_server_id)
+            if error is not None:
+                return error, None
+            
+
+            return None, new_server_id
+
         else:
             return "Invalid function '{}.{}'".format(self.__SHORTNAME__, func), None
 
