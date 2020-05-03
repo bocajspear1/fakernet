@@ -25,9 +25,9 @@ class TestNetworkReservation(unittest.TestCase):
     def test_network_list(self):
         error, result = self.mm['netreserve'].run("list")
         self.assertTrue(error == None)
-        self.assertTrue(len(result['columns']) == 4)
+        self.assertTrue(len(result['columns']) == 5)
         # We are expecting at least the one network from initialization
-        self.assertTrue(len(result['rows'][0]) == 4)
+        self.assertTrue(len(result['rows'][0]) == 5)
 
     def test_add_remove_network(self):
         bridge_1 = "testnet1"

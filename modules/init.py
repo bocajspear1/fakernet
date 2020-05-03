@@ -45,6 +45,11 @@ class FakernetInit(BaseModule):
             except subprocess.CalledProcessError:
                 errors.append("Cannot access LXD. Add this user to the `lxd` group and re-login")
 
+            try:
+                subprocess.check_output(["vtysh", "-c", "show run"], shell=True, stderr=subprocess.DEVNULL)     
+            except subprocess.CalledProcessError:
+                errors.append("Cannot access Quagga. Add this user to the `quaggavty` group and re-login")
+
             if len(errors) > 0:
                 return "\n".join(errors), None
             else:

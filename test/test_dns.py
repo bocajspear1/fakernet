@@ -115,11 +115,35 @@ class TestNetworkReservation(unittest.TestCase):
             for item in resp.items:
                 self.assertTrue('172.16.3.200' == item.to_text(), msg=item)
 
-        
+        error, server_2_id = self.mm['dns'].run("smart_add_subdomain_server", fqdn="domain.com", ip_addr='172.16.3.11')
+        self.assertTrue(error == None, msg=error)
 
+        error, result = self.mm['dns'].run("add_host", fqdn="host1.domain.com", ip_addr='172.16.3.201')
+        self.assertTrue(error == None, msg=error)
 
+        answers = root_resolver.query('host1.domain.com', 'A')
+        self.assertTrue(answers is not None)
+        for resp in answers.response.answer:
+            for item in resp.items:
+                self.assertTrue('172.16.3.201' == item.to_text(), msg=item)
 
+        error, result = self.mm['dns'].run("smart_remove_subdomain_server", id=server_2_id)
+        self.assertTrue(error == None, msg=error)
 
+        try:
+            answers = root_resolver.query('host1.domain.test', 'A')
+            self.fail()
+        except:
+            pass
+
+        error, result = self.mm['dns'].run("smart_remove_root_server", id=server_1_id)
+        self.assertTrue(error == None, msg=error)
+
+        try:
+            answers = root_resolver.query('ns1.com', 'A')
+            self.fail()
+        except:
+            pass
    
 
     def tearDown(self):

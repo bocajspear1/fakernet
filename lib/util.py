@@ -37,7 +37,14 @@ def convert_ovs_table(ovs_data):
     return out_list
 
 
-        
+def remove_all_ovs():
+    output = subprocess.check_output(["/usr/bin/sudo", "/usr/bin/ovs-vsctl", "-f", "json", "list", "bridge"]).decode()
+    bridge_list = json.loads(output)
+    bridge_data = convert_ovs_table(bridge_list)
+
+    for bridge in bridge_data:
+        subprocess.check_output(["/usr/bin/sudo", "/usr/bin/ovs-vsctl", "del-br", bridge['name']]).decode()
+
 
 def clean_ovs():
     output = subprocess.check_output(["/usr/bin/sudo", "/usr/bin/ovs-vsctl", "-f", "json", "list", "bridge"]).decode()

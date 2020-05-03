@@ -1,5 +1,6 @@
 import subprocess 
 import os
+import time
 
 import docker
 import pylxd
@@ -238,6 +239,42 @@ class LXDBaseModule(BaseModule):
                 return None, stdout
         except pylxd.exceptions.LXDAPIException as e:
             return str(e), None
+
+    def lxd_start(self, container_name, server_ip):
+        try:
+            container = self.mm.lxd.containers.get(container_name)
+            container.start()
+            time.sleep(5)
+        except pylxd.exceptions.LXDAPIException as e:
+            return str(e), None
+
+        # Configure networking
+        err, switch = self.mm['netreserve'].run("get_ip_switch", ip_addr=server_ip)
+        if err:
+            return err, None
+
+        err, network = self.mm['netreserve'].run("get_ip_network", ip_addr=server_ip)
+        if err:
+            return err, None
+        
+        mask = network.prefixlen
+        gateway = str(list(network.hosts())[0])
+
+        err, _ = self.lxd_execute(container_name, "ip addr add {}/{} dev eth0".format(server_ip, mask))
+        if err is not None:
+            return err, None
+
+        err, _ = self.lxd_execute(container_name, "ip route add default via {}".format(gateway))
+        if err is not None:
+            return err, None
+
+        error, server_data = self.mm['dns'].run("get_server", id=1)
+        if error is None:
+            err, _ = self.lxd_execute(container_name, "echo 'nameserver {}' > /etc/resolv.conf".format(server_data['server_ip']))
+            if err is not None:
+                return err, None
+
+        return None, True
 
     def lxd_build_image(self, image_name, template, switch, commands):
         try:

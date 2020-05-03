@@ -205,7 +205,11 @@ class LXDManager(LXDBaseModule):
                 return error, None
 
             time.sleep(5)
-            return self.lxd_execute(container_name, "echo root:{} | chpasswd".format(password))
+            serror, _ =  self.lxd_execute(container_name, "echo root:{} | chpasswd".format(password))
+            if serror is not None:
+                return serror, None
+            return None, lxd_id
+            
         elif func == "remove_container":
             perror, _ = self.validate_params(self.__FUNCS__['start_container'], kwargs)
             if perror is not None:
@@ -257,22 +261,19 @@ class LXDManager(LXDBaseModule):
             lxd_id = kwargs['id']
             
             # Get server ip from database
-            dbc.execute("SELECT fqdn FROM lxd_container WHERE lxd_id=?", (lxd_id,))
+            dbc.execute("SELECT fqdn, ip_addr FROM lxd_container WHERE lxd_id=?", (lxd_id,))
             result = dbc.fetchone()
             if not result:
                 return "Container does not exist", None
 
             fqdn = result[0]
+            ip_addr = result[1]
 
             container_name = fqdn.replace(".", "-")
 
-            try:
-                container = self.mm.lxd.containers.get(container_name)
-                container.start()
-            except pylxd.exceptions.LXDAPIException as e:
-                return str(e), None
+            return self.lxd_start(container_name, ip_addr)
 
-            return None, True
+            
         elif func == "stop_container":
             perror, _ = self.validate_params(self.__FUNCS__['stop_container'], kwargs)
             if perror is not None:

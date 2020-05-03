@@ -47,6 +47,18 @@ class NetReservation(LXDBaseModule):
     __DESC__ = "Manages creating networks that are behind a next hop"
     __AUTHOR__ = "Jacob Hartman"
 
+    def _vtysh_exec(self, commands):
+        vtyshPath = subprocess.check_output(["/bin/sh", '-c', 'which vtysh']).strip().decode()
+        full_command = [vtyshPath]
+        for command in commands:
+            full_command += ['-c', command]
+        
+        try:
+            return subprocess.check_output(full_command).strip().decode()
+        except subprocess.CalledProcessError as e:
+            print(e)
+            return None
+
     def run(self, func, **kwargs) :
         dbc = self.mm.db.cursor()
         if func == "list":
@@ -100,7 +112,7 @@ class NetReservation(LXDBaseModule):
             hop_id = dbc.lastrowid
             container_name = INSTANCE_TEMPLATE.format(hop_id)
 
-            network_obj = ipaddress.ip_network(new_network)
+            
 
             # Create the hop container
             try:
@@ -112,13 +124,11 @@ class NetReservation(LXDBaseModule):
                     },
                     "devices": {
                         "eth0": {
-                            "ipv4.address": front_ip,
                             "type": "nic",
                             "nictype": "bridged",
                             "parent": front_switch
                         },
                         "eth1": {
-                            "ipv4.address": str(list(network_obj.hosts())[0]),
                             "type": "nic",
                             "nictype": "bridged",
                             "parent": new_switch
@@ -133,9 +143,31 @@ class NetReservation(LXDBaseModule):
                 return error, None
 
             time.sleep(5)
-            self.lxd_execute(container_name, "echo router rip >> /etc/quagga/ripd.conf")
-            self.lxd_execute(container_name, " network eth0 >> /etc/quagga/ripd.conf")
-            self.lxd_execute(container_name, " network eth1 >> /etc/quagga/ripd.conf")
+            self.lxd_execute(container_name, "echo '' >> /etc/quagga/zebra.conf")
+            self.lxd_execute(container_name, "echo 'router rip' >> /etc/quagga/ripd.conf")
+            self.lxd_execute(container_name, "echo ' version 2' >> /etc/quagga/ripd.conf")
+            self.lxd_execute(container_name, "echo ' network eth0' >> /etc/quagga/ripd.conf")
+            self.lxd_execute(container_name, "echo ' network eth1' >> /etc/quagga/ripd.conf")
+            self.lxd_execute(container_name, "service zebra restart")
+            self.lxd_execute(container_name, "service ripd restart")
+
+            nerror, is_hop = self.mm['netreserve'].run("is_hop_network_by_switch", switch=front_switch)
+            if nerror is not None:
+                return nerror, None
+
+            if not is_hop:
+                self.print("Not a hop, configuring local quagga...")
+
+                self._vtysh_exec([
+                    'config t',
+                    'router rip',
+                    'version 2',
+                    'network {}'.format(front_switch),
+                ])
+
+                self._vtysh_exec([
+                    'write mem'
+                ])
 
             return None, True
 
@@ -185,7 +217,7 @@ class NetReservation(LXDBaseModule):
             if err is not None:
                 return err, None
 
-            return self.mm['netreserve'].run("remove_network", id=network_data[0])
+            return self.mm['netreserve'].run("remove_network", id=network_data['net_id'])
 
         elif func == "start_hop":
             perror, _ = self.validate_params(self.__FUNCS__[func], kwargs)
@@ -195,11 +227,27 @@ class NetReservation(LXDBaseModule):
             hop_id = kwargs['id']
             container_name = INSTANCE_TEMPLATE.format(hop_id)
 
-            try:
-                container = self.mm.lxd.containers.get(container_name)
-                container.start()
-            except pylxd.exceptions.LXDAPIException as e:
-                return str(e), None
+            dbc.execute("SELECT front_ip, fqdn, switch_name FROM nethop WHERE hop_id=?", (hop_id,))
+            result = dbc.fetchone()
+            if not result:
+                return "The hop does not exist", None
+
+            front_ip = result[0]
+            switch_name = result[2]
+
+            serror, _ = self.lxd_start(container_name, front_ip)
+            if serror is not None:
+                return serror, None
+
+            err, network_data = self.mm['netreserve'].run("get_network_by_switch", switch=switch_name)
+            if err is not None:
+                return err, None
+
+            network_obj = ipaddress.ip_network(network_data['net_address'])
+
+            err, _ = self.lxd_execute(container_name, "ip addr add {}/{} dev eth1".format(str(list(network_obj.hosts())[0]), str(network_obj.prefixlen)))
+            if err is not None:
+                return err, None
 
             return None, True
         elif func == "stop_hop":
@@ -263,9 +311,12 @@ class NetReservation(LXDBaseModule):
 
         hop_commands = [
             "apk add quagga openssh-server",
+            "echo '' > /etc/network/interfaces",
+            "echo 'auto eth0' >> /etc/network/interfaces",
+            "echo 'iface eth0 inet manual' >> /etc/network/interfaces",
             "echo '' >> /etc/network/interfaces",
             "echo 'auto eth1' >> /etc/network/interfaces",
-            "echo 'iface eth1 inet dhcp' >> /etc/network/interfaces",
+            "echo 'iface eth1 inet manual' >> /etc/network/interfaces",
             "echo 'PermitRootLogin yes' >> /etc/ssh/sshd_config"
         ]
 

@@ -33,7 +33,7 @@ echo "Installing Docker..."
 sudo apt-get install -y docker-ce docker-ce-cli containerd.io
 
 echo "Installing other dependencies..."
-sudo apt-get install -y openvswitch-switch lxd python3-venv python3-pip quagga 
+sudo apt-get install -y openvswitch-switch lxd python3-venv python3-pip quagga traceroute
 
 echo "Adding current user to 'quaggavty' group..."
 sudo usermod -a -G quaggavty $CURRENT_USER
@@ -49,6 +49,7 @@ echo "Doing sudo configuration..."
 echo "${CURRENT_USER} ALL=(ALL) NOPASSWD: /sbin/iptables" >> /tmp/.fn_sudo
 echo "${CURRENT_USER} ALL=(ALL) NOPASSWD: /usr/bin/ovs-vsctl" >> /tmp/.fn_sudo
 echo "${CURRENT_USER} ALL=(ALL) NOPASSWD: /usr/bin/ovs-docker" >> /tmp/.fn_sudo
+echo "${CURRENT_USER} ALL=(ALL) NOPASSWD: /sbin/ip" >> /tmp/.fn_sudo
 sudo mv /tmp/.fn_sudo /etc/sudoers.d/FakerNet
 sudo chmod 440 /etc/sudoers.d/FakerNet
 sudo chown root:root /etc/sudoers.d/FakerNet

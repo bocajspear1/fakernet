@@ -185,6 +185,29 @@ class DNSServer(DockerBaseModule):
 
         return None, True
 
+    def _remove_forwarding_zone(self, dns_server_id, zone):
+
+        dns_config_path = "{}/{}".format(DNS_BASE_DIR, dns_server_id)
+
+        zone_config_path = "{}/conf/forward-{}.conf".format(dns_config_path, zone)
+
+        os.remove(zone_config_path)
+
+        main_config = open(dns_config_path + "/named.conf", "r+")
+        main_config_contents = main_config.read()
+        config_lines = main_config_contents.split("\n")
+        new_contents = ""
+        for line in config_lines:
+            if "include \"/etc/bind/conf/forward-{}.conf\";".format(zone) not in line:
+                new_contents += line + "\n"
+        
+        main_config.seek(0)
+        main_config.truncate()
+        main_config.write(new_contents)
+        main_config.close()
+
+        return None, True
+
     def _add_zone(self, dns_server_id, zone, direction):
         if direction != "fwd" and direction != "rev":
             return "Invalid zone direction", None
@@ -482,15 +505,6 @@ class DNSServer(DockerBaseModule):
             error, result = self.run("start_server", id=dns_server_id)
             if error is not None:
                 return error, None
-
-            # If we are the first DNS server, then set us as the default DNS server for LXD containers
-            if dns_server_id == 1:
-                err, switch = self.mm['netreserve'].run("get_ip_switch", ip_addr=server_ip)
-                if err:
-                    return err, None
-                network = self.mm.lxd.networks.get(switch)
-                network.config['raw.dnsmasq'] = 'dhcp-option=option:dns-server,{}'.format(server_ip) 
-                network.save()
 
             return None, dns_server_id           
         elif func == "add_zone":
@@ -891,7 +905,6 @@ class DNSServer(DockerBaseModule):
             root_name = kwargs['root_name']
             ip_addr = kwargs['ip_addr']
 
-            print(root_name)
             if len(root_name.split(".")) > 2 or (len(root_name.split(".")) == 2 and not root_name.endswith(".")):
                 return "root_name should be a new root domain (e.g. .net or .com), not a fqdn", None
             
@@ -919,6 +932,32 @@ class DNSServer(DockerBaseModule):
             
 
             return None, new_server_id
+        elif func == "smart_remove_root_server":
+            perror, _ = self.validate_params(self.__FUNCS__['smart_remove_root_server'], kwargs)
+            if perror is not None:
+                return perror, None
+            
+            dns_server_id = kwargs['id']
+            dbc.execute("SELECT server_ip,server_domain FROM dns_server WHERE server_id=?", (dns_server_id,))
+            result = dbc.fetchone()
+            if not result:
+                return "DNS server does not exist", None
+
+            ip_addr = result[0]
+            server_domain = result[1]
+
+            # Remove the server
+            derror,_ = self.run("remove_server", id=dns_server_id)
+            if derror is not None:
+                return derror, None
+
+            self._remove_forwarding_zone(1, server_domain)
+            
+            error, _ = self._rndc_reload(1)
+            if error is not None:
+                return error, None
+
+            return None, True
 
         else:
             return "Invalid function '{}.{}'".format(self.__SHORTNAME__, func), None
