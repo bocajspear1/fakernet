@@ -7,6 +7,7 @@ import test_network_reservation
 import test_dns
 import test_nethop
 import test_lxd
+import test_simplemail
 
 if __name__ == '__main__':
 
@@ -32,7 +33,8 @@ if __name__ == '__main__':
     # suite.addTests(loader.loadTestsFromModule(test_network_reservation))
     # suite.addTests(loader.loadTestsFromModule(test_lxd))
     # suite.addTests(loader.loadTestsFromModule(test_dns))
-    suite.addTests(loader.loadTestsFromModule(test_nethop))
+    # suite.addTests(loader.loadTestsFromModule(test_nethop))
+    suite.addTests(loader.loadTestsFromModule(test_simplemail))
 
     runner = unittest.TextTestRunner(verbosity=3)
     result = runner.run(suite)

@@ -206,7 +206,11 @@ class SimpleMailServer(DockerBaseModule):
             if err is not None:
                 return err, None
             
-            return self.run("start_server", id=simplemail_id)
+            serror, _ = self.run("start_server", id=simplemail_id)
+            if serror is not None:
+                return serror, None
+
+            return None, simplemail_id 
         elif func == "start_server":
             perror, _ = self.validate_params(self.__FUNCS__['start_server'], kwargs)
             if perror is not None:
