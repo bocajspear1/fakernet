@@ -100,7 +100,7 @@ python3 -m venv ./venv
 ```
 pip3 install -r requirements.txt
 ```
-11. Build the FakerNet Docker images and pull in LXD images:
+11. Build the FakerNet Docker images and pull in LXD images (This will take awhile):
 ```
 python3 build.py
 ```
@@ -109,7 +109,7 @@ python3 build.py
 ./fnconsole
 ```
 13. (Recommended) Install `iptables-persistent` to manage your iptables rules.
-14. Allow Forwarding between your internal and external interfaces:
+14. Allow Forwarding between your internal and external interfaces. Docker closes off forwarding by default:
 ```
 sudo iptables -I FORWARD -i <INTERNAL_INTERFACE> -j ACCEPT
 sudo iptables -I FORWARD -i <EXTERNAL_INTERFACE> -j ACCEPT

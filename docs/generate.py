@@ -31,6 +31,12 @@ for page in info_pages:
         out_page = page.replace(".md", ".html")
         info_links.append({"title": title, "link": out_page})
 
+for page in info_pages:
+    if ".md" in page:
+        info_page_data = open(INFO_PAGES_PATH + "/" + page, "r").read()
+        title = info_page_data.strip().split("\n")[0].replace("#", "").strip()
+        out_page = page.replace(".md", ".html")
+
         contents = markdown.markdown(info_page_data, extensions=["fenced_code"])
 
         contents = contents.replace("<code class=\"python\">", "")

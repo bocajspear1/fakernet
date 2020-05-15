@@ -1,1 +1,1 @@
-> This module should not be run independently. It called when the console starts.
+> This module should not be run independently. It is called when the console starts.

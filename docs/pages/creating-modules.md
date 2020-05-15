@@ -56,6 +56,9 @@ This is the name of the module used in the console and when other modules refer 
 * `run`: This function is called with the function name as a string as the first argument, then kwargs for the paramaters. Be sure to match the parameters to the function definition in `__FUNCS__`
 * `check`: This function is called on console startup to ensure the database tables and other configurations are set for the module.
 * `build`: This function is called to build it the base Docker image for the service. Modules that do not make a Docker image should just make an empty function with just `pass`.
+* `list_all`: This function returns a list of server instances. Used for console and API `list_all` and `list_running` commands.
+* `save`: This function returns data used for restoring servers later. Used for the console and API `save` command.
+* `restore`: This function takes in data from a save file and uses it to return FakerNet to a particular state. Used for the `restore` command.
 
 ## `run` Function
 
