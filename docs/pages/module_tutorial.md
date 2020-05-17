@@ -225,3 +225,196 @@ You can then test it using the tag value you set in ```__SERVER_IMAGE_NAME__```:
 docker run -it <__SERVER_IMAGE_NAME__>
 ```
 
+## Adding Module Functions
+
+This is the where we define the central functionality of your module: functions. These are the things you call in ```fnconsole``` or between modules. They all go in the ```run``` method of your module.
+
+We'll first you need to determine what functions you will expose. At minimum, you should have ones to create, destroy, stop and start instances. Once you've figured it out, you need to put them in the ```__FUNCS__``` class constant. This dict has a special structure which allows the framework to automatically figure out what parameters the function has and even for automatically generating documention for the module.
+
+At minimum, for modules that provide a service, you need at leasts a minimum of four functions:
+
+* ```list```: List servers and their creation and running status
+* ```add_server```: Adding a server
+* ```remove_server```: Remove a server
+* ```start_server```: Start a server
+* ```stop_server```: Stop a server
+
+These names are not required, but encouraged to maintain consistency. There are not requirements for function names except they are a string, as they need to be ablew to be put into a Python dict.
+
+The dict that defines the function and its arguments is simply:
+```
+"FUNCTION_NAME": {
+    "ARG1": "TYPE",
+    "ARG2": "TYPE"
+}
+```
+
+Each function definition has a special field, ```_desc```, which is not an argument, but the description of the function. This is displayed in the command line interface and documentation.
+
+Example:
+```python
+__FUNCS__ = {
+    "list": {
+        "_desc": "View all servers"
+    },
+    "add_server": {
+        "_desc": "Add a server",
+        "fqdn": "TEXT",
+        "ip_addr": "IP"
+    },
+    "remove_server": {
+        "_desc": "Delete a server",
+        "id": "INTEGER"
+    },
+    "start_server": {
+        "_desc": "Start a server",
+        "id": "INTEGER"
+    },
+    "stop_server": {
+        "_desc": "Start a server",
+        "id": "INTEGER"
+    }
+} 
+```
+
+### ```list``` Function
+
+First, let's work on the ```list``` function. This function simply returns a list of servers and their statuses. It requires a special return format so FakerNet can display it correctly.
+
+To begin, the boilerplate should have your ```run``` method code look like:
+```python
+def run(self, func, **kwargs):
+    dbc = self.mm.db.cursor()
+    # Put list of functions here
+    if func == "":
+        pass
+    else:
+        return "Invalid function '{}.{}'".format(self.__SHORTNAME__, func), None
+```
+
+Run is passed the function name in ```func```, with the arguments as Python kwargs in ```kwargs```. We just determine the function and run the proper code based on the name. 
+
+So, to add ```list``` as a valid function, change the blank string in the ```if``` statement to ```list```. Once that's done, add the code to retrieve server container data from the database.
+```python
+# Put list of functions here
+if func == "list":
+    dbc.execute("SELECT * FROM inspircd;") 
+    results = dbc.fetchall()
+```
+
+To add status information, you can use a helper function built into the parent class your class inherits from: ```self.docker_status(<CONTAINER_NAME>)```. It returns the built status and running status in a two-sized tuple.
+
+Here's code similar to other modules, which basically loops through the containers and appends it to the server data to make the results list:
+```python
+new_results = []
+for row in results:
+    new_row = list(row)
+    container_name = INSTANCE_TEMPLATE.format(row[0])
+    _, status = self.docker_status(container_name)
+    new_row.append(status[0])
+    new_row.append(status[1])
+    new_results.append(new_row)
+```
+
+Then, you need to return the data as dict with the keys ```rows``` and ```columns```.  ```rows``` is the list containing the data, and ```columns``` is a list containing the names of columns in the rows. Be sure the number of row columns and columns in the ```columns``` list match and the data rows match to the names.
+
+```python
+return None, {
+    "rows": new_results,
+    "columns": ['ID', "server_fqdn", "server_ip", 'built', 'status']
+}
+```
+
+Note that the function also returns two values, the first is an error, which is a string containing the error. The second is the data you are returning. In out case, since we have no errors, we return ```None``` for the error and our data as the second return value. All functions are expected to use this format.
+
+### ```add_server``` and ```remove_server``` Functions
+
+Next we'll create the functions to create and destory server containers. As we build these functions, we'll also see how to call functions in other modules.
+
+To add the function, add a new conditional in the ```run``` method:
+
+```python
+# End of list function here
+elif func == "add_server":
+    pass
+else:
+    return "Invalid function '{}.{}'".format(self.__SHORTNAME__, func), None
+```
+
+#### Arguments
+
+Arguments are recieved through Python kwargs. See Python's documentation for kwargs for more details. kwargs essentially packs named arguments to a dict that we can extract our argument data from. We can use the helper function, ```self.validate_params``` to ensure all our required parameters are filled. This uses the function definition in ```__FUNCS__``` to determine the required arguments. We pass the function definition from ```__FUNCS__``` and the kwargs.
+
+Example:
+```python
+perror, _ = self.validate_params(self.__FUNCS__['add_server'], kwargs)
+# If there's any errors, like missing a parameter, validate_params will produce an error, which we pass back instead of continuing 
+if perror is not None:
+    return perror, None
+
+# Extract our variables here
+fqdn = kwargs['fqdn']
+server_ip = kwargs['ip_addr']
+```
+
+Note again the ```<ERROR>, <RESULT>``` return format. Remember that all functions must return this way.
+
+#### Duplicate Checking
+
+Next you should check that we're not duplicating an existing container. This is usually just a database check.
+
+Example:
+```python
+# Check for duplicates 
+dbc.execute("SELECT server_id FROM simplemail WHERE server_fqdn=? OR server_ip=?", (fqdn, server_ip))
+if dbc.fetchone():
+    return "inspircd server already exists of that FQDN or IP", None
+```
+
+#### Allocating IP and FQDN
+
+Next, we need to allocate our IP address from ```ipreserve``` module and our domain name from the ```dns``` module. This ensures we have no overlaps on IP addresses or domain names.
+
+Doing these allocations are simple, we just call functions from those modules. To do this, we do:
+```
+self.mm['<MODULE_NAME>'].run("function", arg1=<ARG1>, etc.)
+```
+
+For ```ipreserve``` we call ```add_ip```, giving it our IP and a brief description:
+```python
+# Allocate our IP address
+error, _ = self.mm['ipreserve'].run("add_ip", ip_addr=server_ip, description="inspircd Server: {}".format(fqdn))
+if error is not None:
+    return error, None
+```
+
+For ```dns```, we call ```add_host```, which not only allocates out domain name, it adds it to the necessary DNS server as well as adding the reverse DNS lookup as well! We pass it the domain name and our IP.
+```python
+# Allocate our DNS name
+err, _ = self.mm['dns'].run("add_host", fqdn=fqdn, ip_addr=server_ip)
+if err is not None:
+    return err, None
+```
+
+For both we ensure there are no errors before continuing and stops the function if we get one.
+
+#### Inserting into the Database
+
+Next, we need to insert our server data into the database:
+```python
+# Add the server to the database
+dbc.execute('INSERT INTO inspircd (server_fqdn, server_ip) VALUES (?, ?)', (fqdn, server_ip))
+self.mm.db.commit()
+
+inspircd_id = dbc.lastrowid
+```
+
+We store the ```lastrowid``` so we can refer to the server later.
+
+
+
+### ```start_server``` and ```stop_server``` Functions
+
+## ```save``` and ```restore``` Methods
+
+## ```get_list``` Method

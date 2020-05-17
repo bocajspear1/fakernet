@@ -1,6 +1,9 @@
 import subprocess
 import json
 
+import docker
+import pylxd
+
 def _convert_ovs_type(item):
     if isinstance(item, list):
         if item[0] == 'uuid':
@@ -36,6 +39,25 @@ def convert_ovs_table(ovs_data):
     
     return out_list
 
+def remove_db():
+    subprocess.run(["/bin/rm", "../fakernet.db"])
+    subprocess.run(["/bin/rm", "fakernet.db"])
+
+def remove_all_docker():
+    docker_inst = docker.from_env()
+    docker_running = docker_inst.containers.list(all=True)
+    for cont in docker_running:
+        cont.stop()
+        cont.remove()
+
+def remove_all_lxd():
+    lxd_inst = pylxd.Client()
+    lxd_running = lxd_inst.containers.all()
+    
+    for cont in lxd_running:
+        if cont.status == "Running":
+            cont.stop(wait=True)
+        cont.delete()
 
 def remove_all_ovs():
     output = subprocess.check_output(["/usr/bin/sudo", "/usr/bin/ovs-vsctl", "-f", "json", "list", "bridge"]).decode()
