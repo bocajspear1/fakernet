@@ -13,9 +13,9 @@ All modules need to have a main class so that FakerNet can pick it up. It should
 # You need this to validate parameters for your functions
 import lib.validate as validate
 # You need this so your class can inherit from it.
-from lib.base_module import BaseModule
+from lib.base_module import DockerBaseModule
 
-class ClassName(BaseModule):
+class ClassName(DockerBaseModule):
     # Class code goes here
 
 __MODULE__ = ClassName
@@ -31,32 +31,32 @@ Here's an example of some class constants:
 ```python
 __FUNCS__ = {
     "list": {
-        "_desc": "View all SimpleMail servers"
+        "_desc": "View all inspircd servers"
     },
     "remove_server": {
-        "_desc": "Delete a SimpleMail server",
+        "_desc": "Delete a inspircd server",
         "id": "INTEGER"
     },
     "add_server": {
-        "_desc": "Add a SimpleMail server",
+        "_desc": "Add a inspircd server",
         "fqdn": "TEXT",
         "mail_domain": "TEXT",
         "ip_addr": "IP"
     },
     "start_server": {
-        "_desc": "Start a SimpleMail server",
+        "_desc": "Start a inspircd server",
         "id": "INTEGER"
     },
     "stop_server": {
-        "_desc": "Start a SimpleMail server",
+        "_desc": "Start a inspircd server",
         "id": "INTEGER"
     }
 } 
 
-__SHORTNAME__  = "simplemail"
+__SHORTNAME__  = "inspircd"
 __DESC__ = "A simple mail server"
 __AUTHOR__ = "Jacob Hartman"
-__SERVER_IMAGE_NAME__ = "simplemail"
+__SERVER_IMAGE_NAME__ = "inspircd"
 ```
 
 * ```__FUNCS__```: Lists available module functions. 
@@ -71,10 +71,12 @@ Use of a few local constants is encouraged, particularly for two things: the wor
 
 The work directory is a location where the FakerNet host mounts parts of the Docker image's filesystem to gain access to configuration files and store data across instances. It is encouraged to use a local constant for this, as you will probably need this path alot.
 
-Example from ```simplemail``` module:
+The ```INSTANCE_TEMPLATE``` is just a template for creating names for the instances.
+
+Example:
 ```python
-SERVER_BASE_DIR = "{}/work/simplemail".format(os.getcwd())
-INSTANCE_TEMPLATE = "simplemail-server-{}"
+SERVER_BASE_DIR = "{}/work/inspircd".format(os.getcwd())
+INSTANCE_TEMPLATE = "inspircd-server-{}"
 ```
 
 ## Class Methods
@@ -327,7 +329,7 @@ return None, {
 
 Note that the function also returns two values, the first is an error, which is a string containing the error. The second is the data you are returning. In out case, since we have no errors, we return ```None``` for the error and our data as the second return value. All functions are expected to use this format.
 
-### ```add_server``` and ```remove_server``` Functions
+### ```add_server``` Function
 
 Next we'll create the functions to create and destory server containers. As we build these functions, we'll also see how to call functions in other modules.
 
@@ -366,7 +368,7 @@ Next you should check that we're not duplicating an existing container. This is 
 Example:
 ```python
 # Check for duplicates 
-dbc.execute("SELECT server_id FROM simplemail WHERE server_fqdn=? OR server_ip=?", (fqdn, server_ip))
+dbc.execute("SELECT server_id FROM inspircd WHERE server_fqdn=? OR server_ip=?", (fqdn, server_ip))
 if dbc.fetchone():
     return "inspircd server already exists of that FQDN or IP", None
 ```
@@ -411,10 +413,194 @@ inspircd_id = dbc.lastrowid
 
 We store the ```lastrowid``` so we can refer to the server later.
 
+#### Configuring the Container
 
+Next, we can actually put together the configuration for the server container. First, we need to create the working directory for the instance, which is simply a subdirectory of the module's working directory with the ID number as the directory name. Ensure to remove any old directory and create any subdirectories we need.
+
+```python
+inspircd_working_path = "{}/{}".format(SERVER_BASE_DIR, inspircd_id)
+
+if os.path.exists(inspircd_working_path):
+    self.print("Removing old inspircd server directory...")
+    shutil.rmtree(inspircd_working_path)
+
+os.mkdir(inspircd_working_path)
+config_dir = inspircd_working_path + "/config"
+os.mkdir(config_dir)
+```
+
+Once the directory structure is built, we need to add the files. Again, we're using the Python string templates functionality to fill in our configuration.
+
+```python
+# Generate the necessary passwords
+start_stop_pass = ''.join(random.sample(ascii_letters, 10))
+root_pass = ''.join(random.sample(ascii_letters, 10))
+
+# For DNS lookups, get the main DNS server by calling dns.get_server, which returns server info
+dns_server = ""
+error, server_data = self.mm['dns'].run("get_server", id=1)
+if error is None:
+    dns_server = server_data['server_ip']  
+
+# Fill in and place the configuration file
+conf_template = open(build_base + "inspircd.conf", "r").read()
+tmplt = Template(conf_template)
+output = tmplt.substitute({"DOMAIN": fqdn, "ROOT_PASS": root_pass, "START_STOP_PASS": start_stop_pass, "DNS_SERVER": dns_server})
+out_file = open(config_dir + "/inspircd.conf", "w+")
+out_file.write(output)
+out_file.close()
+
+# Place other needed files
+shutil.copyfile(build_base + "inspircd.motd", config_dir + "/inspircd.motd")
+shutil.copyfile(build_base + "inspircd.rules", config_dir + "/inspircd.rules")
+```
+
+With all the files in place, we can create the container instance itself. We can use the helper function ```docker_create``` to create the container. It takes a dict of volumes, for share file access, a dict of environment variables, and the name. Once we create the instance, we call our own ```start_server``` function to start the instance. After that is done, we return the instance ID as the result. This is useful for creating tests and chaining things together.
+
+```python
+# Setup the volumes
+vols = {
+    config_dir: {"bind": "/etc/inspircd", 'mode': 'rw'},
+}
+
+# Our environemnt is empty this time
+environment = {
+}
+
+container_name = INSTANCE_TEMPLATE.format(inspircd_id)
+
+err, _ = self.docker_create(container_name, vols, environment)
+if err is not None:
+    return err, None
+
+serror, _ = self.run("start_server", id=inspircd_id)
+if serror is not None:
+    return serror, None
+
+return None, inspircd_id 
+```
 
 ### ```start_server``` and ```stop_server``` Functions
 
+Next, we should implement the start and stop functionality. These functions are quite simple, just ensuring the container exists in the database, getting the server's IP, then using the helper functions ```docker_start``` and ```docker_stop``` to start and stop the container instances. For ```docker_start```, we need to pass the IP as it is set when the container starts. It is not stored by Docker itself since we are using Open vSwitch. ```docker_stop``` uses the IP to determine the container's interface and remove it from the switch.
+
+```python
+elif func == "start_server":
+    perror, _ = self.validate_params(self.__FUNCS__['start_server'], kwargs)
+    if perror is not None:
+        return perror, None
+
+    inspircd_id = kwargs['id']
+
+    # Get server ip from database
+    dbc.execute("SELECT server_ip FROM inspircd WHERE server_id=?", (inspircd_id,))
+    result = dbc.fetchone()
+    if not result:
+        return "inspircd server does not exist", None
+
+    server_ip = result[0]
+
+    # Start the Docker container
+    container_name = INSTANCE_TEMPLATE.format(inspircd_id)
+
+    return self.docker_start(container_name, server_ip)
+elif func == "stop_server":
+    perror, _ = self.validate_params(self.__FUNCS__['stop_server'], kwargs)
+    if perror is not None:
+        return perror, None
+
+    inspircd_id = kwargs['id']
+    container_name = INSTANCE_TEMPLATE.format(inspircd_id)
+
+    # Check if the server is running
+    _, status = self.docker_status(container_name)
+    if status is not None and status[1] != "running":
+        return "inspircd server is not running", None
+
+    # Find the server in the database
+    dbc.execute("SELECT server_ip FROM inspircd WHERE server_id=?", (inspircd_id,))
+    result = dbc.fetchone()
+    if not result:
+        return "inspircd server does not exist", None
+
+    server_ip = result[0]
+
+    return self.docker_stop(container_name, server_ip)
+```
+
+###  ```remove_server``` Function
+
+For removing, we just need to do some of the steps for building the container instance in reverse. First, we get the necessary data. Then we remove the DNS name from the DNS servers, then remove the IP reservation, delete from the database, then delete the image itself using the ```docker_delete``` helper method. Note that we ignore errors from the calls to other module's functions. This is to ensure the deletion does not get only partially done.
+
+```python
+elif func == "remove_server":
+    perror, _ = self.validate_params(self.__FUNCS__['remove_server'], kwargs)
+    if perror is not None:
+        return perror, None
+    
+    inspircd_id = kwargs['id']
+
+    dbc.execute("SELECT server_fqdn, server_ip FROM inspircd WHERE server_id=?", (inspircd_id,))
+    result = dbc.fetchone()
+    if not result:
+        return "inspircd server does not exist", None
+    
+    server_ip = result[1]
+    fqdn = result[0]
+
+    container_name = INSTANCE_TEMPLATE.format(inspircd_id)
+
+    # Ensure the container is stopped
+    self.run("stop_server", id=inspircd_id)
+
+    # Remove the host from the DNS server
+    self.mm['dns'].run("remove_host", fqdn=fqdn, ip_addr=server_ip)
+
+    # Remove the IP allocation
+    self.mm['ipreserve'].run("remove_ip", ip_addr=server_ip)
+
+    dbc.execute("DELETE FROM inspircd WHERE server_id=?", (inspircd_id,))
+    self.mm.db.commit()
+
+    return self.docker_delete(container_name)
+```
+
 ## ```save``` and ```restore``` Methods
 
+FakerNet has "states," which essentially is an image of what is running at a certain time. This can be used to save and restore setups, which is especially useful for things like server reboots. When saving a state, FakerNet simply calls the ```save``` method on each module, and on restoring a save, calls the ```restore``` method. There are no real restrictions on the data returned by the ```save``` method, but usually its the server ID and whether its running or not. Whatever data is collected from ```save``` is stored in a JSON file, and the data is directly passed back to the ```restore``` function. Since many modules will only need the ID and status combination, helper functions (```self._save_add_data``` and  ```self._restore_server```) have been made to manage this information. (Note that ```save``` is a unique method, as the function has only the save data as the return value. It does not return the usual ```<ERROR>, <RESULT>```.) ```self._save_add_data``` is the helper for saving data, which takes a list of server IDs and the naming template for the container instances. It uses this to get the running statuses of all the module's containers, and returns them as an error of ```[<SERVER_ID>, <STATUS>]```. ```self._restore_server``` is used to restore a server to state it was at according to the data passed to the ```restore``` method. It takes the container name, the server IP, and the previous state.
+
+```python
+def save(self):
+    dbc = self.mm.db.cursor()
+    dbc.execute("SELECT server_id FROM inspircd;")
+    results = dbc.fetchall()
+
+    return self._save_add_data(results, INSTANCE_TEMPLATE)
+
+def restore(self, restore_data):
+    dbc = self.mm.db.cursor()
+    
+    for server_data in restore_data:
+        dbc.execute("SELECT server_ip FROM inspircd WHERE server_id=?", (server_data[0],))
+        results = dbc.fetchone()
+        if results:
+            self._restore_server(INSTANCE_TEMPLATE.format(server_data[0]), results[0], server_data[1])
+```
+
 ## ```get_list``` Method
+
+```get_list``` is used to get a general listing of a module's containers. FakerNet will call the ```get_list``` method of each module when using the ```list_servers``` command in the command line interface. It expects a particular format for the return data. It expects a list containing the server ID, the server IP, the server name (usually the domain name), the build status (whether the container is actually made and exists), and the running status. For most modules, this isn't too difficult. You can query the database table for your module's containers, then use the helper method ```_list_add_data``` to append the build and running status for each container to each row.
+
+```python
+def get_list(self):
+    dbc = self.mm.db.cursor()
+
+    dbc.execute("SELECT server_id, server_ip, server_fqdn FROM inspircd;")
+
+    results = dbc.fetchall()
+    return self._list_add_data(results, INSTANCE_TEMPLATE)
+```
+
+## Wrapping Up
+
+Hopefully, this tutorial should get you familiar enough with the module format to build your own custom modules. Use other existing modules as templates and references for extended module functionality.
