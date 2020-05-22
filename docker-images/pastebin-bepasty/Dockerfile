@@ -11,7 +11,9 @@ RUN mkdir /opt/bepasty/storage; mkdir /opt/bepasty/logs;
 RUN chown -R bepasty:bepasty /opt/bepasty
 RUN chmod 755 /opt/bepasty
 RUN cd repo && pip3 install -e .
-RUN pip3 install gunicorn gevent
+RUN pip3 install greenlet
+RUN pip3 install eventlet
+RUN pip3 install gunicorn[eventlet]
 
 COPY setup.sh /opt/bepasty/
 COPY bepasty.conf.init /opt/bepasty/

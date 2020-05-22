@@ -19,12 +19,14 @@ if [ ! -e "/etc/nginx/sites-enabled/nginx-bepasty.conf" ]; then
     sed -i "s|DOMAIN.ZONE|${DOMAIN}|" /etc/nginx/sites-enabled/nginx-bepasty.conf
 fi
 
-if [ ! -e "/opt/bepasty/bepasty.conf" ]; then
+if [ ! -e "/opt/bepasty/conf/bepasty.conf" ]; then
     echo "Setting up Nginx"
-    mv /opt/bepasty/bepasty.conf.init /opt/bepasty/bepasty.conf
-    sed -i "s|DOMAIN.ZONE|${DOMAIN}|" /opt/bepasty/bepasty.conf
+    mv /opt/bepasty/bepasty.conf.init /opt/bepasty/conf/bepasty.conf
+    sed -i "s|DOMAIN.ZONE|${DOMAIN}|" /opt/bepasty/conf/bepasty.conf
     SECRET_KEY=$(cat /dev/urandom | tr -dc 'a-zA-Z0-9' | fold -w 32 | head -n 1)
-    sed -i "s_INSERT_SECRET_KEY_${SECRET_KEY}_" /opt/bepasty/bepasty.conf
+    sed -i "s|INSERT_SECRET_KEY|${SECRET_KEY}|" /opt/bepasty/conf/bepasty.conf
     ADMIN_PASS=$(cat /dev/urandom | tr -dc 'a-zA-Z0-9' | fold -w 8 | head -n 1)
-    sed -i "s_INSERT_ADMIN_PASS_${ADMIN_PASS}_" /opt/bepasty/bepasty.conf
+    sed -i "s|INSERT_ADMIN_PASS|${ADMIN_PASS}|" /opt/bepasty/conf/bepasty.conf
 fi
+
+chmod 777 /opt/bepasty/storage/

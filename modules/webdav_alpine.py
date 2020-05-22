@@ -103,6 +103,9 @@ class AlpineWebDAVServer(DockerBaseModule):
             os.mkdir(certs_dir)
             data_dir = alpinewebdav_data_path + "/webdav"
             os.mkdir(data_dir)
+            files_dir = alpinewebdav_data_path + "/files"
+            os.mkdir(files_dir)
+            os.mkdir(files_dir + "/public")
 
             # Setup SSL certificates
             err, _ = self.ssl_setup(fqdn, certs_dir, "alpinewebdav")
@@ -114,6 +117,7 @@ class AlpineWebDAVServer(DockerBaseModule):
             vols = {
                 certs_dir: {"bind": "/etc/certs", 'mode': 'rw'},
                 data_dir: {"bind": "/etc/webdav", 'mode': 'rw'},
+                files_dir: {"bind": "/var/www/localhost/htdocs/files/", 'mode': 'rw'},
             }
 
             environment = {

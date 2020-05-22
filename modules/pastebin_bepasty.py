@@ -101,6 +101,10 @@ class BePastyServer(DockerBaseModule):
 
             certs_dir = bepasty_data_path + "/certs"
             os.mkdir(certs_dir)
+            conf_dir = bepasty_data_path + "/conf"
+            os.mkdir(conf_dir)
+            storage_dir = bepasty_data_path + "/storage"
+            os.mkdir(storage_dir)
 
             # Setup SSL certificates
             err, _ = self.ssl_setup(fqdn, certs_dir, "bepasty")
@@ -108,7 +112,9 @@ class BePastyServer(DockerBaseModule):
                 return err, None
 
             vols = {
-                certs_dir: {"bind": "/etc/certs", 'mode': 'rw'}
+                certs_dir: {"bind": "/etc/certs", 'mode': 'rw'},
+                conf_dir: {"bind": "/opt/bepasty/conf/", 'mode': 'rw'},
+                storage_dir: {"bind": "/opt/bepasty/storage", 'mode': 'rw'}
             }
 
             environment = {
@@ -136,7 +142,7 @@ class BePastyServer(DockerBaseModule):
             dbc.execute("SELECT server_ip, server_fqdn FROM bepasty WHERE server_id=?", (bepasty_id,))
             result = dbc.fetchone()
             if not result:
-                return "BePasty server does not exist", None
+                return "Bepasty server does not exist", None
 
             server_ip = result[0]
             fqdn = result[1]
