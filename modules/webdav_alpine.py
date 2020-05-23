@@ -106,6 +106,8 @@ class AlpineWebDAVServer(DockerBaseModule):
             files_dir = alpinewebdav_data_path + "/files"
             os.mkdir(files_dir)
             os.mkdir(files_dir + "/public")
+            db_dir = alpinewebdav_data_path + "/db"
+            os.mkdir(db_dir)
 
             # Setup SSL certificates
             err, _ = self.ssl_setup(fqdn, certs_dir, "alpinewebdav")
@@ -118,6 +120,7 @@ class AlpineWebDAVServer(DockerBaseModule):
                 certs_dir: {"bind": "/etc/certs", 'mode': 'rw'},
                 data_dir: {"bind": "/etc/webdav", 'mode': 'rw'},
                 files_dir: {"bind": "/var/www/localhost/htdocs/files/", 'mode': 'rw'},
+                db_dir: {"bind": "/var/www/db", 'mode': 'rw'},
             }
 
             environment = {
@@ -129,7 +132,11 @@ class AlpineWebDAVServer(DockerBaseModule):
             if err is not None:
                 return err, None
 
-            return self.run("start_server", id=alpinewebdav_id)
+            err, _ = self.run("start_server", id=alpinewebdav_id)
+            if err is not None:
+                return err, None
+
+            return None, alpinewebdav_id
         elif func == "remove_server":
             perror, _ = self.validate_params(self.__FUNCS__['remove_server'], kwargs)
             if perror is not None:

@@ -33,7 +33,7 @@ class TestNetworkHop(unittest.TestCase):
         self.assertTrue(error == None, msg=error)
 
         # Wait for RIP to settle
-        time.sleep(20)
+        time.sleep(30)
 
         traceroute = subprocess.check_output(["/usr/sbin/traceroute", '-n', '192.168.100.1']).decode().strip()
 

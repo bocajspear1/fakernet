@@ -26,12 +26,12 @@ class TestBepasty(unittest.TestCase):
         self.mm.load()
         self.mm['simplemail'].check()
 
-    def test_simplemail(self):
+    def test_bepasty(self):
         server_1_ip = '172.16.3.130'
         error, server_id = self.mm['pastebin-bepasty'].run("add_server", ip_addr=server_1_ip, fqdn='pastebin.test')
         self.assertTrue(error == None, msg=error)
 
-        time.sleep(3)
+        time.sleep(5)
         data = {
             "text": "test_data",
             "contenttype": "",
@@ -43,7 +43,7 @@ class TestBepasty(unittest.TestCase):
         url_test = "https://172.16.3.130/+upload"
         resp = requests.post(url_test, data=data, verify=False) 
 
-        self.assertTrue(resp.status_code == 200)
+        self.assertTrue(resp.status_code == 200, msg="status was {}".format(resp.status_code))
         # Ensure we got redirected
         self.assertTrue(resp.url != url_test)
 
@@ -55,8 +55,11 @@ class TestBepasty(unittest.TestCase):
         self.assertTrue(os.path.exists(full_path), msg="{} does not exist".format(full_path))
 
         error, _ = self.mm['pastebin-bepasty'].run("stop_server", id=server_id)
+        self.assertTrue(error == None, msg=error)
         time.sleep(2)
         error, _ = self.mm['pastebin-bepasty'].run("start_server", id=server_id)
+        self.assertTrue(error == None, msg=error)
+        time.sleep(5)
 
         resp = requests.get("https://172.16.3.130/{}/+inline".format(name), verify=False) 
         self.assertTrue(resp.status_code == 200)

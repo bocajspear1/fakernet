@@ -13,14 +13,14 @@ if [ ! -e "/usr/local/share/ca-certificates/fakernet.crt" ]; then
     update-ca-certificates;
 fi 
 
-if [ ! -e "/var/www/users.passwd" ]; then
+if [ ! -e "/var/www/db/users.passwd" ]; then
     if [ ! -e "/etc/webdav/admin.pass" ]; then
         PASSWORD=$(cat /dev/urandom | tr -dc 'a-zA-Z0-9' | fold -w 8 | head -n 1)
         echo $PASSWORD > /etc/webdav/admin.pass
     fi
     echo "Setting admin password"
     PASSWORD=$(cat /etc/webdav/admin.pass)
-    htpasswd -b -c /var/www/users.passwd admin $PASSWORD
+    htpasswd -b -c /var/www/db/users.passwd admin $PASSWORD
 fi
 
 sed -i "s|DOMAIN.ZONE|${DOMAIN}|" /etc/apache2/conf.d/davserver.conf
@@ -28,3 +28,4 @@ sed -i "s|DOMAIN.ZONE|${DOMAIN}|" /etc/apache2/conf.d/ssl.conf
 
 chown -R apache:apache /var/lib/dav
 chmod -R 777 /var/www/localhost/htdocs/files/
+chmod -R 777 /var/www/db

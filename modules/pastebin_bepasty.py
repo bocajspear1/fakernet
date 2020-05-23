@@ -127,7 +127,11 @@ class BePastyServer(DockerBaseModule):
             if err is not None:
                 return err, None
 
-            return self.run("start_server", id=bepasty_id)
+            err, _ = self.run("start_server", id=bepasty_id)
+            if err is not None:
+                return err, None
+
+            return None, bepasty_id
         elif func == "remove_server":
             perror, _ = self.validate_params(self.__FUNCS__['remove_server'], kwargs)
             if perror is not None:
