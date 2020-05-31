@@ -23,7 +23,7 @@ class TestInspircd(unittest.TestCase):
     def setUp(self):
         self.mm = ModuleManager()
         self.mm.load()
-        self.mm['simplemail'].check()
+        self.mm['inspircd'].check()
 
     def test_inspircd(self):
         server_1_ip = '172.16.3.180'

@@ -38,6 +38,8 @@ class TestBasics(unittest.TestCase):
         self.assertTrue(error == None)
         error, result = self.mm['dns'].run("add_zone", id=1, direction="fwd", zone="test")
         self.assertTrue(error == None)
+        error, result = self.mm['dns'].run("add_forwarder", id=1, ip_addr="8.8.8.8")
+        self.assertTrue(error == None)
 
         self.mm['minica'].check()
         error, result = self.mm['minica'].run("add_server", fqdn="ca.test", ip_addr="172.16.3.3")

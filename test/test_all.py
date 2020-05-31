@@ -11,6 +11,7 @@ import test_simplemail
 import test_inspircd
 import test_bepasty
 import test_alpine_webdav
+import test_tinyproxy
 
 if __name__ == '__main__':
 
@@ -35,12 +36,13 @@ if __name__ == '__main__':
     suite.addTests(loader.loadTestsFromModule(test_base))
     # suite.addTests(loader.loadTestsFromModule(test_network_reservation))
     # suite.addTests(loader.loadTestsFromModule(test_lxd))
-    suite.addTests(loader.loadTestsFromModule(test_dns))
-    suite.addTests(loader.loadTestsFromModule(test_nethop))
-    suite.addTests(loader.loadTestsFromModule(test_simplemail))
-    suite.addTests(loader.loadTestsFromModule(test_inspircd))
-    suite.addTests(loader.loadTestsFromModule(test_bepasty))
-    suite.addTests(loader.loadTestsFromModule(test_alpine_webdav))
+    # suite.addTests(loader.loadTestsFromModule(test_dns))
+    # suite.addTests(loader.loadTestsFromModule(test_nethop))
+    # suite.addTests(loader.loadTestsFromModule(test_simplemail))
+    # suite.addTests(loader.loadTestsFromModule(test_inspircd))
+    # suite.addTests(loader.loadTestsFromModule(test_bepasty))
+    # suite.addTests(loader.loadTestsFromModule(test_alpine_webdav))
+    suite.addTests(loader.loadTestsFromModule(test_tinyproxy))
 
     runner = unittest.TextTestRunner(verbosity=3)
     result = runner.run(suite)
