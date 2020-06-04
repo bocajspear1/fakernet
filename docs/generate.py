@@ -21,6 +21,12 @@ modules = manager.list_modules()
 
 INFO_PAGES_PATH = os.path.normpath(os.path.dirname(os.path.abspath(__file__)) + "/pages")
 info_pages = os.listdir(INFO_PAGES_PATH)
+info_pages.sort()
+print(info_pages)
+
+out_dir = os.path.dirname(os.path.abspath(__file__)) + "/out/"
+if not os.path.exists(out_dir):
+    os.mkdir(out_dir)
 
 info_links = []
 
@@ -29,6 +35,8 @@ for page in info_pages:
         info_page_data = open(INFO_PAGES_PATH + "/" + page, "r").read()
         title = info_page_data.strip().split("\n")[0].replace("#", "").strip()
         out_page = page.replace(".md", ".html")
+        out_page = '-'.join(out_page.split('-')[1:])
+        print(out_page)
         info_links.append({"title": title, "link": out_page})
 
 for page in info_pages:
@@ -36,6 +44,7 @@ for page in info_pages:
         info_page_data = open(INFO_PAGES_PATH + "/" + page, "r").read()
         title = info_page_data.strip().split("\n")[0].replace("#", "").strip()
         out_page = page.replace(".md", ".html")
+        out_page = '-'.join(out_page.split('-')[1:])
 
         contents = markdown.markdown(info_page_data, extensions=["fenced_code"])
 
@@ -94,6 +103,11 @@ for mod_name in modules:
         details=details
     )
 
-    outfile = open(os.path.dirname(os.path.abspath(__file__)) + "/out/{}.html".format(module.__SHORTNAME__), "w+")
+    module_pages_dir = os.path.dirname(os.path.abspath(__file__)) + "/out/modules/"
+
+    if not os.path.exists(module_pages_dir):
+        os.mkdir(module_pages_dir)
+
+    outfile = open("{}{}.html".format(module_pages_dir, module.__SHORTNAME__), "w+")
     outfile.write(template_output)
     outfile.close()

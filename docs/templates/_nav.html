@@ -1,10 +1,9 @@
 <nav>
-    <h4>Modules</h4>
-{% for item in module_links %}
-    <a href="{{ item }}.html">{{ item }}</a>
-{% endfor %}
-    <h4>Other Info</h4>
 {% for item in info_links %}
     <a href="{{ item.link }}">{{ item.title }}</a>
+{% endfor %}
+    <h4>Modules</h4>
+{% for item in module_links %}
+    <a href="modules/{{ item }}.html">{{ item }}</a>
 {% endfor %}
 </nav>

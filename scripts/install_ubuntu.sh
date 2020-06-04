@@ -68,7 +68,7 @@ python3 -m venv ./venv
 pip3 install -r requirements.txt
 
 echo "Running 'lxd init'... (Defaults will usually for for FakerNet)"
-lxd init
+sudo lxd init
 
 echo "Installation is complete!"
 
