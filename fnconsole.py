@@ -1,3 +1,7 @@
+# This Source Code Form is subject to the terms of the Mozilla Public
+# License, v. 2.0. If a copy of the MPL was not distributed with this
+# file, You can obtain one at https://mozilla.org/MPL/2.0/.
+
 import shlex
 import textwrap
 import sys
@@ -43,21 +47,21 @@ def print_table(data, headers):
 
 class CommandCompleter(Completer):
 
-    def __init__(self, mm, global_vars, run_mode=False):
+    def __init__(self, mm, global_vars, in_func_level=False):
         super().__init__()
         self.mm = mm
         self.global_vars = global_vars
-        self.run_mode = run_mode
+        self.in_func_level = in_func_level
         self.run_options = {}
 
     MAIN_COMMANDS = [
         'run',
-        'global',
-        'uglobal',
+        # 'global',
+        # 'uglobal',
         'exit',
         'stats',
         'list_servers',
-        'list_running',
+        # 'list_running',
         'save',
         'restore'
     ]
@@ -67,18 +71,18 @@ class CommandCompleter(Completer):
         'set',
         'unset',
         'execute',
-        'info',
+        # 'info',
         'show',
         'back',
-        'global',
-        'uglobal',
+        # 'global',
+        # 'uglobal',
     ]
 
     def get_completions(self, document, complete_event):
         command_string = document.text
         if " " not in command_string:
             command_list = self.MAIN_COMMANDS
-            if self.run_mode:
+            if self.in_func_level:
                 command_list = self.RUN_COMMANDS
             
             for command in command_list:
@@ -132,7 +136,7 @@ class CommandCompleter(Completer):
                 for global_var in self.global_vars:
                     if len(arg_split) == 0 or arg_split[0] == "" or global_var.startswith(arg_split[0]):
                         yield Completion(global_var, start_position=-(document.cursor_position)+len(command)+1)
-            elif (command == "set" or command == "unset") and self.run_mode == True:
+            elif (command == "set" or command == "unset") and self.in_func_level == True:
                 if len(arg_split) > 1 :
                     return 
                 for variable in self.run_options:
@@ -265,7 +269,7 @@ class FakerNetConsole():
             try:
                 prompt = self.host + '> '
                 if self.current_command is not None:
-                    self.completer.run_mode = True
+                    self.completer.in_func_level = True
                     self.completer.run_options = self.current_command['function']
                     prompt = self.host + "(" + self.current_command['display_name'] + ')> '
 
@@ -279,16 +283,16 @@ class FakerNetConsole():
 
                 if len(command_split) > 0:
                     if self.current_command is not None:
-                        self.run_mode(command_split)
+                        self.func_level(command_split)
                     else:
-                        self.main_mode(command_split)
+                        self.main_level(command_split)
             
             except KeyboardInterrupt:
                 self.running = False
             except EOFError:
                 pass
 
-    def main_mode(self, command_input):
+    def main_level(self, command_input):
         command = command_input[0].lower()
         if command == "exit":
             self.running = False
@@ -331,11 +335,11 @@ class FakerNetConsole():
         else:
             print_formatted_text(HTML('<ansired>Error: Invalid command "{}"</ansired>'.format(command)))
 
-    def run_mode(self, command_input):
+    def func_level(self, command_input):
         command = command_input[0].lower()
         if command == "exit":
             self.current_command = None
-            self.completer.run_mode = False
+            self.completer.in_func_level = False
         elif command == "run":
             self.command_run(command_input[1:])
         elif command == "set":

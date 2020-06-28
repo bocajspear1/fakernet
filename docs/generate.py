@@ -2,6 +2,7 @@ import sys
 import os 
 from datetime import datetime
 import markdown
+import subprocess
 
 import_path = os.path.normpath(os.path.dirname(os.path.abspath(__file__)) + "/../")
 sys.path.append(import_path)
@@ -27,6 +28,8 @@ print(info_pages)
 out_dir = os.path.dirname(os.path.abspath(__file__)) + "/out/"
 if not os.path.exists(out_dir):
     os.mkdir(out_dir)
+    os.mkdir(out_dir + "css")
+    subprocess.check_output(['wget', 'https://cdnjs.cloudflare.com/ajax/libs/mini.css/3.0.1/mini-default.min.css', '-O', '{}'.format(out_dir + "css/mini-default.min.css")])
 
 info_links = []
 
@@ -107,6 +110,8 @@ for mod_name in modules:
 
     if not os.path.exists(module_pages_dir):
         os.mkdir(module_pages_dir)
+        
+
 
     outfile = open("{}{}.html".format(module_pages_dir, module.__SHORTNAME__), "w+")
     outfile.write(template_output)
