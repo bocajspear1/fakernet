@@ -3,6 +3,12 @@
 CURRENT_USER=$(id -u -n)
 CURRENT_UID=$(id -u)
 
+if [[ $CURRENT_USER -eq 0 ]]; then
+    echo "Do not start the script as root. sudo will be called when necessary."
+    echo "This is so the user for FakerNet can be set to the running user."
+    exit 1
+fi
+
 if [ ! -f ./fnconsole ]; then
     echo "Only run this script from the main FakerNet directory!"
     exit 1
