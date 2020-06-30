@@ -68,6 +68,16 @@ cat /etc/subgid >> /tmp/.temp_subgid
 sudo mv /tmp/.temp_subuid /etc/subuid
 sudo mv /tmp/.temp_subgid /etc/subgid
 
+echo "Setting up Quagga..."
+sudo touch /etc/quagga/zebra.conf
+sudo touch /etc/quagga/vtysh.conf
+sudo touch /etc/quagga/ripd.conf
+sudo chown quagga:quagga /etc/quagga/*.conf
+sudo systemctl enable zebra
+sudo systemctl enable ripd
+sudo systemctl start zebra 
+sudo systemctl start ripd 
+
 echo "Install Python components..."
 python3 -m venv ./venv
 . ./venv/bin/activate

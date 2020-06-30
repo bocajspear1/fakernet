@@ -63,12 +63,18 @@ class NetReservation(BaseModule):
 
     def _set_switch_ip(self, switch, ip_addr):
 
-        status_data = subprocess.check_output(["/usr/bin/sudo", "/sbin/ip", "addr", "show", "dev", "testnet0"]).decode()
-        if "UP" in status_data and ip_addr in status_data:
-            return
-
-        subprocess.check_output(["/usr/bin/sudo", "/sbin/ip", 'link', 'set', switch, 'up'])
-        subprocess.check_output(["/usr/bin/sudo", "/sbin/ip", 'addr', 'add', ip_addr, 'dev', switch])
+        try:
+            status_data = subprocess.check_output(["/usr/bin/sudo", "/sbin/ip", "addr", "show", "dev", switch]).decode()
+            if "UP" in status_data and ip_addr in status_data:
+                return None, True
+        except subprocess.CalledProcessError:
+            return "Failed to get switch status", None
+        
+        try:
+            subprocess.check_output(["/usr/bin/sudo", "/sbin/ip", 'link', 'set', switch, 'up'])
+            subprocess.check_output(["/usr/bin/sudo", "/sbin/ip", 'addr', 'add', ip_addr, 'dev', switch])
+        except subprocess.CalledProcessError:
+            return "Failed to set switch ip", None
               
 
     def run(self, func, **kwargs) :
@@ -186,27 +192,12 @@ class NetReservation(BaseModule):
                     # Ensure the switch exists
                     try:
                         subprocess.check_output(["/usr/bin/sudo", "/usr/bin/ovs-vsctl", "br-exists", switch])
-                    except:
+                    except subprocess.CalledProcessError:
                         try:
                             subprocess.check_output(["/usr/bin/sudo", "/usr/bin/ovs-vsctl", "add-br", switch])
-                        except:
+                        except subprocess.CalledProcessError:
                             return "Failed to create OVS bridge", None
                         self._set_switch_ip(switch, str(list(new_network_obj.hosts())[0]) + "/" + str(new_network_obj.prefixlen))
-                       
-                        # lxd_net_config = {
-                        #     'ipv4.address': str(list(new_network_obj.hosts())[0]) + "/" + str(new_network_obj.prefixlen),
-                        #     'ipv4.nat': 'false',
-                        #     'bridge.driver': 'openvswitch'
-                        # }
-
-                        # # If we have a base dns server, set the networks DNS server
-                        # error, server_data = self.mm['dns'].run("get_server", id=1)
-                        # if error is None:
-                        #     lxd_net_config['raw.dnsmasq'] = 'dhcp-option=option:dns-server,{}'.format(server_data['server_ip'])
-
-                        # self.mm.lxd.networks.create(switch, config=lxd_net_config)
-
-                    
 
                 return None, network_id
             else:
