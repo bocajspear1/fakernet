@@ -321,7 +321,7 @@ class LXDBaseModule(BaseModule):
                     return False
 
             temp_container.stop(wait=True)
-            print(dir(temp_container.type))
+            temp_container.type = 'container'
 
             image = temp_container.publish(wait=True)
             image.add_alias(name=image_name, description=image_name)
