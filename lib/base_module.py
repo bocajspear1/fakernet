@@ -289,7 +289,11 @@ class LXDBaseModule(BaseModule):
             self.print("Building {}".format(image_name))
             temp_container = self.mm.lxd.containers.create({
                 'name': container_name, 
-                'source': {'type': 'image', 'alias': template},
+                'source': {
+                    'type': 'image', 
+                    'alias': template,
+                    'mode': 'pull'
+                },
                 'config': {
 
                 },
@@ -317,6 +321,7 @@ class LXDBaseModule(BaseModule):
                     return False
 
             temp_container.stop(wait=True)
+            print(dir(temp_container.type))
 
             image = temp_container.publish(wait=True)
             image.add_alias(name=image_name, description=image_name)

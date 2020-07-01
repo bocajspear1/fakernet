@@ -318,7 +318,7 @@ class MiniCAServer(DockerBaseModule):
     
     def build(self):
         self.print("Building MiniCA server image...")
-        self.mm.docker.images.build(path="./docker-images/minica/", tag=self.__SERVER_IMAGE_NAME__, rm=True, nocache=True)
+        self.mm.docker.images.build(path="./docker-images/minica/", tag=self.__SERVER_IMAGE_NAME__, rm=True)
 
     def get_list(self):
         dbc = self.mm.db.cursor()
