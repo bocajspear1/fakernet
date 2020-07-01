@@ -38,6 +38,7 @@ BUILD_BASE_IMAGES = {
     "centos7_base": {
         "template": "centos7",
         "commands": [
+            "dhclient",
             "yum -y upgrade",
             "yum -y install openssh-server tmux",
             "echo 'PermitRootLogin yes' >> /etc/ssh/sshd_config",
