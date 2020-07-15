@@ -12,6 +12,7 @@ import test_inspircd
 import test_bepasty
 import test_alpine_webdav
 import test_tinyproxy
+import test_mattermost
 
 if __name__ == '__main__':
 
@@ -42,7 +43,8 @@ if __name__ == '__main__':
     # suite.addTests(loader.loadTestsFromModule(test_inspircd))
     # suite.addTests(loader.loadTestsFromModule(test_bepasty))
     # suite.addTests(loader.loadTestsFromModule(test_alpine_webdav))
-    suite.addTests(loader.loadTestsFromModule(test_tinyproxy))
+    # suite.addTests(loader.loadTestsFromModule(test_tinyproxy))
+    suite.addTests(loader.loadTestsFromModule(test_mattermost))
 
     runner = unittest.TextTestRunner(verbosity=3)
     result = runner.run(suite)

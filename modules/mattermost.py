@@ -139,14 +139,30 @@ class MattermostServer(DockerBaseModule):
             os.mkdir(mattermost_data_path)
             certs_dir = mattermost_data_path + "/certs"
             os.mkdir(certs_dir)
+            db_dir = mattermost_data_path + "/db"
+            os.mkdir(db_dir)
+            config_dir = mattermost_data_path + "/config"
+            os.mkdir(config_dir)
+            data_dir = mattermost_data_path + "/data"
+            os.mkdir(data_dir)
+            plugins_dir = mattermost_data_path + "/plugins"
+            os.mkdir(plugins_dir)
+            client_plugins_dir = mattermost_data_path + "/client_plugins"
+            os.mkdir(client_plugins_dir)
 
             # Get the key and cert
-            err, _ = self.ssl_setup(fqdn, certs_dir, "alpinewebdav")
+            err, _ = self.ssl_setup(fqdn, certs_dir, "mattermost")
             if err is not None:
                 return err, None
 
             vols = {
-                certs_dir: {"bind": "/etc/certs", 'mode': 'rw'}
+                certs_dir: {"bind": "/etc/certs", 'mode': 'rw'},
+                db_dir: {"bind": "/var/lib/postgresql/data", 'mode': 'rw'},
+                "/etc/localtime": {"bind": "/etc/localtime", 'mode': 'rw'},
+                config_dir: {"bind": "/mattermost/config", 'mode': 'rw'},
+                data_dir: {"bind": "/mattermost/data", 'mode': 'rw'},
+                plugins_dir: {"bind": "/mattermost/plugins", 'mode': 'rw'},
+                client_plugins_dir: {"bind": "/mattermost/client/plugins", 'mode': 'rw'},
             }
 
             environment = {

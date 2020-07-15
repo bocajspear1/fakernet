@@ -7,10 +7,10 @@ fi
 
 DOMAIN=$1
 
-if [ ! -e "/db-setup" ]; then
+if [ ! -e "/mattermost/config/db-setup-done" ]; then
     su postgres -c 'createuser mattermost'
     su postgres -c 'createdb -O mattermost mattermostdb'
-    touch /db-setup
+    touch /mattermost/config/db-setup-done
 fi
 
 if [ ! -e "/mattermost/config/config.json " ]; then
@@ -22,3 +22,7 @@ if [ ! -e "/mattermost/config/config.json " ]; then
     chown mattermost:mattermost /mattermost/config/config.json
     chmod 775 /mattermost/config/config.json
 fi
+
+chmod 777 /mattermost/plugins
+chmod 777 /mattermost/client/plugins
+chmod 777 /mattermost/data
