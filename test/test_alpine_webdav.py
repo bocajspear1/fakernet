@@ -32,7 +32,7 @@ class TestWebdav(unittest.TestCase):
         error, server_id = self.mm['webdavalpine'].run("add_server", ip_addr=server_1_ip, fqdn='webdav.test')
         self.assertTrue(error == None, msg=error)
 
-        time.sleep(5)
+        time.sleep(10)
         webdav_url = "https://172.16.3.140/files/"
 
         full_path = parentdir + "/work/webdavalpine/1/webdav/admin.pass"

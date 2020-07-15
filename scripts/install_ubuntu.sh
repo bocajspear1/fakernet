@@ -47,6 +47,16 @@ sudo usermod -a -G quaggavty $CURRENT_USER
 echo "Adding current user to 'docker' group..."
 sudo usermod -a -G docker $CURRENT_USER
 
+echo "Configuring subuid/subgid..."
+echo "dockremap:${CURRENT_UID}:1" > /tmp/.temp_subuid
+echo "dockremap:${CURRENT_UID}:1" > /tmp/.temp_subgid
+cat /etc/subuid >> /tmp/.temp_subuid
+cat /etc/subgid >> /tmp/.temp_subgid
+sudo mv /tmp/.temp_subuid /etc/subuid
+sudo mv /tmp/.temp_subgid /etc/subgid
+
+sudo systemctl restart lxd
+
 echo "Configuring Docker to not be privileged..."
 echo -e "{\n    \"userns-remap\": \"default\"\n}" | sudo tee /etc/docker/daemon.json
 sudo systemctl restart docker
@@ -59,14 +69,6 @@ echo "${CURRENT_USER} ALL=(ALL) NOPASSWD: /sbin/ip" >> /tmp/.fn_sudo
 sudo mv /tmp/.fn_sudo /etc/sudoers.d/FakerNet
 sudo chmod 440 /etc/sudoers.d/FakerNet
 sudo chown root:root /etc/sudoers.d/FakerNet
-
-echo "Configuring subuid/subgid..."
-echo "dockremap:${CURRENT_UID}:1" > /tmp/.temp_subuid
-echo "dockremap:${CURRENT_UID}:1" > /tmp/.temp_subgid
-cat /etc/subuid >> /tmp/.temp_subuid
-cat /etc/subgid >> /tmp/.temp_subgid
-sudo mv /tmp/.temp_subuid /etc/subuid
-sudo mv /tmp/.temp_subgid /etc/subgid
 
 echo "Setting up Quagga..."
 sudo touch /etc/quagga/zebra.conf
@@ -83,8 +85,26 @@ python3 -m venv ./venv
 . ./venv/bin/activate
 pip3 install -r requirements.txt
 
-echo "Running 'lxd init'... (Defaults will usually for for FakerNet)"
-sudo lxd init
+echo "Running 'lxd init'..."
+cat <<EOF | sudo lxd init
+config: {}
+networks: []
+storage_pools:
+- config: {}
+  description: ""
+  name: default
+  driver: dir
+profiles:
+- config: {}
+  description: ""
+  devices:
+    root:
+      path: /
+      pool: default
+      type: disk
+  name: default
+cluster: null
+EOF
 
 echo "Installation is complete!"
 
