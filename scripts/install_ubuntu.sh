@@ -47,6 +47,8 @@ sudo usermod -a -G quaggavty $CURRENT_USER
 echo "Adding current user to 'docker' group..."
 sudo usermod -a -G docker $CURRENT_USER
 
+sudo service docker restart
+
 echo "Configuring subuid/subgid..."
 echo "dockremap:${CURRENT_UID}:1" > /tmp/.temp_subuid
 echo "dockremap:${CURRENT_UID}:1" > /tmp/.temp_subgid
