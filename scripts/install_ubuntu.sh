@@ -106,6 +106,10 @@ profiles:
 cluster: null
 EOF
 
+
+sudo systemctl stop docker  
+sudo systemctl start docker  
+
 echo "Installation is complete!"
 
 echo ""
