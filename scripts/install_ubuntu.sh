@@ -86,7 +86,7 @@ python3 -m venv ./venv
 pip3 install -r requirements.txt
 
 echo "Running 'lxd init'..."
-cat <<EOF | sudo lxd init
+cat <<EOF | sudo lxd init --preseed
 config: {}
 networks: []
 storage_pools:
