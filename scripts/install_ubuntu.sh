@@ -47,7 +47,9 @@ sudo usermod -a -G quaggavty $CURRENT_USER
 echo "Adding current user to 'docker' group..."
 sudo usermod -a -G docker $CURRENT_USER
 
-sudo service docker restart
+echo "Configuring Docker to not be privileged..."
+echo -e "{\n    \"userns-remap\": \"default\"\n}" | sudo tee /etc/docker/daemon.json
+sudo systemctl restart docker
 
 echo "Configuring subuid/subgid..."
 echo "dockremap:${CURRENT_UID}:1" > /tmp/.temp_subuid
@@ -58,10 +60,6 @@ sudo mv /tmp/.temp_subuid /etc/subuid
 sudo mv /tmp/.temp_subgid /etc/subgid
 
 sudo systemctl restart lxd
-
-echo "Configuring Docker to not be privileged..."
-echo -e "{\n    \"userns-remap\": \"default\"\n}" | sudo tee /etc/docker/daemon.json
-sudo systemctl restart docker
 
 echo "Doing sudo configuration..."
 echo "${CURRENT_USER} ALL=(ALL) NOPASSWD: /sbin/iptables" >> /tmp/.fn_sudo
