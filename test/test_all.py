@@ -40,9 +40,9 @@ if __name__ == '__main__':
     # suite.addTests(loader.loadTestsFromModule(test_dns))
     # suite.addTests(loader.loadTestsFromModule(test_nethop))
     # suite.addTests(loader.loadTestsFromModule(test_simplemail))
-    # suite.addTests(loader.loadTestsFromModule(test_inspircd))
-    # suite.addTests(loader.loadTestsFromModule(test_bepasty))
-    # suite.addTests(loader.loadTestsFromModule(test_alpine_webdav))
+    suite.addTests(loader.loadTestsFromModule(test_inspircd))
+    suite.addTests(loader.loadTestsFromModule(test_bepasty))
+    suite.addTests(loader.loadTestsFromModule(test_alpine_webdav))
     # suite.addTests(loader.loadTestsFromModule(test_tinyproxy))
     suite.addTests(loader.loadTestsFromModule(test_mattermost))
 

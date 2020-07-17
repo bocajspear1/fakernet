@@ -31,7 +31,7 @@ class TestBepasty(unittest.TestCase):
         error, server_id = self.mm['pastebin-bepasty'].run("add_server", ip_addr=server_1_ip, fqdn='pastebin.test')
         self.assertTrue(error == None, msg=error)
 
-        time.sleep(5)
+        time.sleep(10)
         data = {
             "text": "test_data",
             "contenttype": "",
