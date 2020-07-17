@@ -1,2 +1,4 @@
 test_all:
   script: scripts/run_ci_tests.sh
+  tags:
+    - fakernet
