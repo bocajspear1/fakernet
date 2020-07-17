@@ -54,6 +54,12 @@ def remove_all_docker():
         cont.stop()
         cont.remove()
 
+def remove_all_docker_images():
+    docker_inst = docker.from_env()
+    docker_images = docker_inst.images.list(all=True)
+    for image in docker_images:
+        docker_inst.images.remove(image.id)
+
 def remove_all_lxd():
     lxd_inst = pylxd.Client()
     lxd_running = lxd_inst.containers.all()
@@ -62,6 +68,13 @@ def remove_all_lxd():
         if cont.status == "Running":
             cont.stop(wait=True)
         cont.delete()
+
+def remove_all_lxd_images():
+    lxd_inst = pylxd.Client()
+    lxd_images = lxd_inst.images.all()
+    
+    for image in lxd_images:
+        image.delete()
 
 def remove_all_ovs():
     output = subprocess.check_output(["/usr/bin/sudo", "/usr/bin/ovs-vsctl", "-f", "json", "list", "bridge"]).decode()
