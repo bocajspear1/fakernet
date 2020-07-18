@@ -1,4 +1,7 @@
+stages:
+  - test
 test_all:
   script: scripts/run_ci_tests.sh
+  stage: test
   tags:
     - fakernet
