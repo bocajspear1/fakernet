@@ -17,7 +17,7 @@ from lib.util import clean_ovs, convert_ovs_table
 from lib.module_manager import ModuleManager
 import lib.validate
 
-class TestNetworkReservation(unittest.TestCase):
+class TestDNS(unittest.TestCase):
 
     def setUp(self):
         self.mm = ModuleManager()
@@ -32,7 +32,34 @@ class TestNetworkReservation(unittest.TestCase):
         self.assertTrue(len(result['rows'][0]) == 6)
 
     def test_dns_basic(self):
-        pass
+        error, _ = self.mm['dns'].run("add_host", fqdn="host1.test", ip_addr='172.16.3.20')
+        self.assertTrue(error == None, msg=error)
+
+        root_resolver = dns.resolver.Resolver()
+        root_resolver.nameservers = [TEST_DNS_ROOT]
+
+        answers = root_resolver.query('ns1.test', 'A')
+        self.assertTrue(answers is not None)
+        for resp in answers.response.answer:
+            for item in resp.items:
+                self.assertTrue(TEST_DNS_ROOT == item.to_text(), msg=item)
+            
+        answers = root_resolver.query('host1.test', 'A')
+        self.assertTrue(answers is not None)
+        for resp in answers.response.answer:
+            for item in resp.items:
+                self.assertTrue('172.16.3.20' == item.to_text(), msg=item)
+
+        error, _ = self.mm['dns'].run("remove_host", fqdn="host1.test", ip_addr='172.16.3.20')
+        self.assertTrue(error == None, msg=error)
+
+        try:
+            answers = root_resolver.query('host1.test', 'A')
+            self.fail()
+        except dns.resolver.NXDOMAIN: 
+            pass
+
+        
 
     @unittest.skip("long...")
     def test_dns_smart_subdomain(self):
@@ -93,6 +120,7 @@ class TestNetworkReservation(unittest.TestCase):
         except:
             pass
 
+    @unittest.skip("long...")
     def test_dns_smart_root(self):
         error, server_1_id = self.mm['dns'].run("smart_add_root_server", root_name="com", ip_addr='172.16.3.10')
         self.assertTrue(error == None, msg=error)

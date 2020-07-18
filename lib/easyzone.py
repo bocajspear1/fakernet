@@ -34,7 +34,12 @@ import dns.rdtypes.ANY.MX
 import dns.rdtypes.IN.A
 import dns.rdtypes.ANY.TXT
 import dns.rdtypes.ANY.PTR
+import dns.rdtypes.ANY.SOA
 
+import dns.rdataset
+
+from dns.rdataclass import *
+from dns.rdatatype import *
 
 # ---- Exceptions ----
 
@@ -48,72 +53,71 @@ class RecordsError(Exception):
     '''An error from easyzone.Records'''
 
 
-
 # ---- Classes ----
 
-class SOA(object):
-    '''Represents the SOA fields of the root node of a Zone.
-    '''
-    def __init__(self, soa):
-        self._soa = soa
+# class SOA(object):
+#     '''Represents the SOA fields of the root node of a Zone.
+#     '''
+#     def __init__(self, soa):
+#         self._soa = soa
     
-    def get_mname(self):
-        return str(self._soa.mname)
+#     def get_mname(self):
+#         return str(self._soa.mname)
     
-    def set_mname(self, value):
-        name = dns.name.Name( value.split('.') )
-        self._soa.mname = name
+#     def set_mname(self, value):
+#         name = dns.name.Name( value.split('.') )
+#         self._soa.mname = name
     
-    mname = property(get_mname, set_mname)
+#     mname = property(get_mname, set_mname)
     
-    def get_rname(self):
-        return str(self._soa.rname)
+#     def get_rname(self):
+#         return str(self._soa.rname)
     
-    def set_rname(self, value):
-        name = dns.name.Name( value.split('.') )
-        self._soa.rname = name
+#     def set_rname(self, value):
+#         name = dns.name.Name( value.split('.') )
+#         self._soa.rname = name
     
-    rname = property(get_rname, set_rname)
+#     rname = property(get_rname, set_rname)
     
-    def get_serial(self):
-        return self._soa.serial
+#     def get_serial(self):
+#         return self._soa.serial
     
-    def set_serial(self, value):
-        self._soa.serial = value
+#     def set_serial(self, value):
+#         self._soa.serial = value
     
-    serial = property(get_serial, set_serial)
+#     serial = property(get_serial, set_serial)
     
-    def get_refresh(self):
-        return self._soa.refresh
+#     def get_refresh(self):
+#         return self._soa.refresh
     
-    def set_refresh(self, value):
-        self._soa.refresh = value
+#     def set_refresh(self, value):
+#         self._soa.refresh = value
     
-    refresh = property(get_refresh, set_refresh)
+#     refresh = property(get_refresh, set_refresh)
     
-    def get_retry(self):
-        return self._soa.retry
+#     def get_retry(self):
+#         return self._soa.retry
     
-    def set_retry(self, value):
-        self._soa.retry = value
+#     def set_retry(self, value):
+#         self._soa.retry = value
     
-    retry = property(get_retry, set_retry)
+#     retry = property(get_retry, set_retry)
     
-    def get_expire(self):
-        return self._soa.expire
+#     def get_expire(self):
+#         return self._soa.expire
     
-    def set_expire(self, value):
-        self._soa.expire = value
+#     def set_expire(self, value):
+#         self._soa.expire = value
     
-    expire = property(get_expire, set_expire)
+#     expire = property(get_expire, set_expire)
     
-    def get_minttl(self):
-        return self._soa.minimum
+#     def get_minttl(self):
+#         return self._soa.minimum
     
-    def set_minttl(self, value):
-        self._soa.minimum = value
+#     def set_minttl(self, value):
+#         self._soa.minimum = value
     
-    minttl = property(get_minttl, set_minttl)
+#     minttl = property(get_minttl, set_minttl)
 
 
 
@@ -151,7 +155,7 @@ class Records(object):
             raise RecordsError("No such item in record: %s" %item)
     
     def __iter__(self):
-        return iter(self._rdataset.items)
+        return iter(self._rdataset)
     
     def next(self):
         if self.type == 'MX':
@@ -186,13 +190,9 @@ class Name(object):
         self.ttl = ttl
         self._node = node
         
-        if node:
-            soa = soa_from_node(node)
-            if soa:
-                self.soa = SOA(soa)
     
     def records(self, rectype, create=False, ttl=None):
-        typeval = dns.rdatatype._by_text.get(rectype, None)
+        typeval = dns.rdatatype.from_text(rectype)
         if typeval is None:
             raise NameError("Invalid type: %s" %rectype)
         
@@ -214,7 +214,7 @@ class Name(object):
         if exclude is None:
             self._node.rdatasets = []
         else:
-            exclude_type = dns.rdatatype._by_text.get(exclude, None)
+            exclude_type = dns.rdatatype.from_text(exclude)
             if exclude_type is None:
                 raise NameError("Invalid exclude: %s" % exclude)
             
@@ -259,7 +259,7 @@ class Zone(object):
         if not self._zone:
             return None
         
-        default_ttl = soa_from_node(self._zone[self.domain]).minimum
+        default_ttl = self._zone.get_rdataset(self.domain, dns.rdatatype.SOA)[0].minimum
         
         names = {}
         for name in self._zone.keys():
@@ -295,19 +295,25 @@ class Zone(object):
         guaranteed to be larger than the previous number.
         '''
         if autoserial:
-            soa = self.root.soa
-            new_serial = int(strftime('%Y%m%d00', localtime(time())))
-            if new_serial <= soa.serial:
-                new_serial = soa.serial + 1
-            soa.serial = new_serial
             
+            old_set = self._zone.get_rdataset(self.domain, dns.rdatatype.SOA)
+            new_set = dns.rdataset.Rdataset(dns.rdataclass.IN, dns.rdatatype.SOA)
+            for soa in old_set:
+            # for (name, ttl, rdata) in self._zone.iterate_rdatas(SOA):
+                new_serial = soa.serial+1
+                new_soa = soa.replace(serial=new_serial)
+                new_set.add(new_soa)
+            # self._zone.delete_rdataset("@", 'SOA')
+            self._zone.replace_rdataset(self.domain, new_set)
+
+
         
         if not filename:
             filename = self.filename
         outtext = self._zone.to_text(relativize=False)
 
         os.remove(filename)
-        outfile = open(filename, "wb+")
+        outfile = open(filename, "w+")
         outfile.write(outtext)
         outfile.close()
     
@@ -355,12 +361,4 @@ def _new_rdata(rectype, *args):
     
     return rd
 
-
-def soa_from_node(node):
-    _soa_rec = node.get_rdataset(dns.rdataclass.IN, dns.rdatatype.SOA)
-    if _soa_rec:
-        soa = _soa_rec.items[0]
-    else:
-        soa = None
-    return soa
 
