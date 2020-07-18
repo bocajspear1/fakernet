@@ -58,7 +58,10 @@ def remove_all_docker_images():
     docker_inst = docker.from_env()
     docker_images = docker_inst.images.list(all=True)
     for image in docker_images:
-        docker_inst.images.remove(image.id)
+        if len(image.tags) > 0:
+            docker_inst.images.remove(image.tags[0])
+    
+    docker_inst.images.prune()
 
 def remove_all_lxd():
     lxd_inst = pylxd.Client()

@@ -58,6 +58,8 @@ class TestDNS(unittest.TestCase):
             self.fail()
         except dns.resolver.NXDOMAIN: 
             pass
+        except dns.exception.Timeout:
+            pass
 
         
 
