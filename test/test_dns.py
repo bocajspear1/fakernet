@@ -63,7 +63,7 @@ class TestDNS(unittest.TestCase):
 
         
 
-    @unittest.skip("long...")
+    # @unittest.skip("long...")
     def test_dns_smart_subdomain(self):
         error, server_1_id = self.mm['dns'].run("smart_add_subdomain_server", fqdn="domain.test", ip_addr='172.16.3.10')
         self.assertTrue(error == None, msg=error)
@@ -122,7 +122,7 @@ class TestDNS(unittest.TestCase):
         except:
             pass
 
-    @unittest.skip("long...")
+    # @unittest.skip("long...")
     def test_dns_smart_root(self):
         error, server_1_id = self.mm['dns'].run("smart_add_root_server", root_name="com", ip_addr='172.16.3.10')
         self.assertTrue(error == None, msg=error)

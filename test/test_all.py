@@ -46,7 +46,7 @@ if __name__ == '__main__':
     suite.addTests(loader.loadTestsFromModule(test_inspircd))
     suite.addTests(loader.loadTestsFromModule(test_bepasty))
     suite.addTests(loader.loadTestsFromModule(test_alpine_webdav))
-    suite.addTests(loader.loadTestsFromModule(test_tinyproxy))
+    # suite.addTests(loader.loadTestsFromModule(test_tinyproxy))
     # suite.addTests(loader.loadTestsFromModule(test_mattermost))
 
     runner = unittest.TextTestRunner(verbosity=3)

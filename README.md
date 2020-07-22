@@ -104,6 +104,17 @@ python3 -m venv ./venv
 pip3 install -r requirements.txt
 ```
 
+# Firewall Rules
+
+Docker sets the default iptables forward rule to drop. To ensure external access to FakerNet services, add the following rules. Use something like `iptables-persistent` to manage your iptables and have them start on boot.
+```
+sudo iptables -I FORWARD -i <INTERNAL_INTERFACE> -j ACCEPT
+sudo iptables -I FORWARD -o <INTERNAL_INTERFACE> -j ACCEPT
+sudo iptables -I FORWARD -i <EXTERNAL_INTERFACE> -j ACCEPT
+sudo iptables -I FORWARD -io <EXTERNAL_INTERFACE> -j ACCEPT
+# NAT for external access
+sudo iptables -t nat -I POSTROUTING 1 -o <EXTERNAL_INTERFACE> -j MASQUERADE
+```
 
 # Usage
 
