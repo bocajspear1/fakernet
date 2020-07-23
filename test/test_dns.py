@@ -4,6 +4,7 @@ import sys
 import subprocess
 import json
 import dns.resolver
+import time
 
 from constants import *
 
@@ -68,6 +69,8 @@ class TestDNS(unittest.TestCase):
         error, server_1_id = self.mm['dns'].run("smart_add_subdomain_server", fqdn="domain.test", ip_addr='172.16.3.10')
         self.assertTrue(error == None, msg=error)
 
+        time.sleep(5)
+
         root_resolver = dns.resolver.Resolver()
         root_resolver.nameservers = [TEST_DNS_ROOT]
 
@@ -77,7 +80,7 @@ class TestDNS(unittest.TestCase):
             for item in resp.items:
                 self.assertTrue('172.16.3.10' == item.to_text(), msg=item)
 
-        error, result = self.mm['dns'].run("add_host", fqdn="host1.domain.test", ip_addr='172.16.3.200')
+        error, _ = self.mm['dns'].run("add_host", fqdn="host1.domain.test", ip_addr='172.16.3.200')
         self.assertTrue(error == None, msg=error)
 
         answers = root_resolver.query('host1.domain.test', 'A')
