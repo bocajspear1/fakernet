@@ -18,7 +18,7 @@ class NetReservation(LXDBaseModule):
         self.mm = mm
 
     __FUNCS__ = {
-        "list_hops": {
+        "list": {
             "_desc": "View network hops"
         },
         "add_network_hop": {

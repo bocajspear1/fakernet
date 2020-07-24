@@ -16,6 +16,7 @@ DNS_BASE_DIR = "{}/work/dns".format(os.getcwd())
 ZONE_CONFIG_TEMPLATE = """zone "$ZONE" IN {
     type master;
     file "$PATH";
+    forwarders { };
 };
 """
 

@@ -69,11 +69,19 @@ class TestDNS(unittest.TestCase):
         error, server_1_id = self.mm['dns'].run("smart_add_subdomain_server", fqdn="domain.test", ip_addr='172.16.3.10')
         self.assertTrue(error == None, msg=error)
 
-        time.sleep(5)
+        time.sleep(20)
 
         root_resolver = dns.resolver.Resolver()
         root_resolver.nameservers = [TEST_DNS_ROOT]
+        root_resolver.timeout = 10.0
+        root_resolver.lifetime = 10.0
+        root_resolver.edns = True
 
+        try:
+            root_resolver.query('ns1.domain.test', 'A')
+        except Exception as e:
+            print(e)
+            pass
         answers = root_resolver.query('ns1.domain.test', 'A')
         self.assertTrue(answers is not None)
         for resp in answers.response.answer:
@@ -127,7 +135,8 @@ class TestDNS(unittest.TestCase):
 
     # @unittest.skip("long...")
     def test_dns_smart_root(self):
-        error, server_1_id = self.mm['dns'].run("smart_add_root_server", root_name="com", ip_addr='172.16.3.10')
+        root_ip_addr = '172.16.3.12'
+        error, server_1_id = self.mm['dns'].run("smart_add_root_server", root_name="com", ip_addr=root_ip_addr)
         self.assertTrue(error == None, msg=error)
 
         root_resolver = dns.resolver.Resolver()
@@ -137,7 +146,7 @@ class TestDNS(unittest.TestCase):
         self.assertTrue(answers is not None)
         for resp in answers.response.answer:
             for item in resp.items:
-                self.assertTrue('172.16.3.10' == item.to_text(), msg=item)
+                self.assertTrue(root_ip_addr == item.to_text(), msg=item)
 
         error, result = self.mm['dns'].run("add_host", fqdn="host1.com", ip_addr='172.16.3.200')
         self.assertTrue(error == None, msg=error)
