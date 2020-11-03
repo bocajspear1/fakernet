@@ -101,12 +101,19 @@ class NetReservation(BaseModule):
             dbc.execute("DELETE FROM networks WHERE net_id=?", (net_id,))
             self.mm.db.commit()
             
-            switch_name = result[3]
-            try:
-                lxd_network = self.mm.lxd.networks.get(switch_name)
-                lxd_network.delete()
-            except pylxd.exceptions.NotFound: 
-                return "Switch not found for LXD", None
+            switch = result[3]
+            if switch != "":
+                # Ensure the switch exists
+                try:
+                    subprocess.check_output(["/usr/bin/sudo", "/usr/bin/ovs-vsctl", "br-exists", switch])
+                except subprocess.CalledProcessError:
+                    return "Switch {} does not exit".format(switch), None
+
+                try:
+                    subprocess.check_output(["/usr/bin/sudo", "/usr/bin/ovs-vsctl", "del-br", switch])
+                except subprocess.CalledProcessError:
+                    return "Could not delete switch {}".format(switch), None
+
 
             return None, True
 
@@ -164,9 +171,10 @@ class NetReservation(BaseModule):
             switch = kwargs['switch']
             description = kwargs['description']
 
-            dbc.execute("SELECT * FROM networks WHERE switch_name=?", (switch,))
-            if dbc.fetchone():
-                return "Switch of that name already exists", None
+            if switch != "":
+                dbc.execute("SELECT * FROM networks WHERE switch_name=?", (switch,))
+                if dbc.fetchone():
+                    return "Switch of that name already exists", None
 
             if validate.is_ipnetwork(new_network):
                 # Check if the network already exists

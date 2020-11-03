@@ -57,9 +57,20 @@ class TestNetworkReservation(unittest.TestCase):
         self.assertTrue(found_2)
 
         error, _ = self.mm['netreserve'].run("remove_network", id=result_id)
-        self.assertTrue(error == None)
+        self.assertTrue(error == None, msg=error)
         error, _ = self.mm['netreserve'].run("remove_network", id=result_id_2)
-        self.assertTrue(error == None)
+        self.assertTrue(error == None, msg=error)
+
+    def test_add_remove_network_blank(self):
+        error, result_id = self.mm['netreserve'].run("add_network", description="Temp test network", net_addr="172.16.5.0/24", switch="")
+        self.assertTrue(error == None, msg=error)
+        error, result_id_2 = self.mm['netreserve'].run("add_network", description="Temp test network 2", net_addr="172.16.6.0/24", switch="")
+        self.assertTrue(error == None, msg=error)
+
+        error, _ = self.mm['netreserve'].run("remove_network", id=result_id)
+        self.assertTrue(error == None, msg=error)
+        error, _ = self.mm['netreserve'].run("remove_network", id=result_id_2)
+        self.assertTrue(error == None, msg=error)
 
    
 

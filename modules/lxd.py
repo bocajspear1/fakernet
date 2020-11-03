@@ -376,9 +376,9 @@ class LXDManager(LXDBaseModule):
         for container in results:
             new_data = ["lxd"]
             new_data += [container[0], container[1], container[2]]
-            container_name = container[2].split(".")[0]
+            container_name = container[2].replace(".", "-")
             _, status = self.lxd_get_status(container_name)
-            new_data += status[1]
+            new_data += [status[1]]
             new_list.append(new_data)
         return new_list
 

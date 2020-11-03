@@ -25,11 +25,22 @@ class TestLXD(unittest.TestCase):
         self.mm['lxd'].check()
 
     def test_add_container(self):
-        error, cont_id = self.mm['lxd'].run("add_container", ip_addr='172.16.3.150', fqdn='lxd1.test', template='ubuntu_1804_base', password='testtest')
+        container_fqdn = 'lxd1.test'
+        error, cont_id = self.mm['lxd'].run("add_container", ip_addr='172.16.3.150', fqdn=container_fqdn, template='ubuntu_1804_base', password='testtest')
         self.assertTrue(error == None, msg=error)
 
         subprocess.check_output(["/bin/ping", '-c', '2', '172.16.3.150'])
 
-        error, result = self.mm['lxd'].run("remove_container", id=cont_id)
+        lxc_output = subprocess.check_output(["/usr/bin/lxc", 'list']).decode()
+        assert container_fqdn.replace(".", "-") in lxc_output
+
+        error, server_list = self.mm.list_all_servers()
+        self.assertTrue(error == None, msg=error)
+        for item in server_list:
+            assert(len(item)==5)
+            if item[0] == "lxd":
+                assert item[4] == "running" 
+
+        error, _ = self.mm['lxd'].run("remove_container", id=cont_id)
         self.assertTrue(error == None, msg=error)
         

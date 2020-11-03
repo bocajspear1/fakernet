@@ -60,7 +60,7 @@ class CommandCompleter(Completer):
         # 'uglobal',
         'exit',
         'stats',
-        'list_servers',
+        'list_all',
         # 'list_running',
         'save',
         'restore'
@@ -302,14 +302,12 @@ class FakerNetConsole():
             pass
         elif command == "uglobal":
             pass
-        elif command == "list_servers":
+        elif command == "list_all":
             error, server_list = self.mm.list_all_servers()
             if error is None:
                 print_table(server_list, ["Module", "ID", "IP", "Description", "status"])
             else:
                 print_formatted_text(HTML('<ansired>Error: "{}"</ansired>'.format(error)))
-        elif command == "list_running":
-            pass
         elif command == "save":
             error = None
             if len(command_input) > 1:

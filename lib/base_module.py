@@ -331,6 +331,7 @@ class LXDBaseModule(BaseModule):
     def lxd_get_status(self, container_name):
         try:
             container = self.mm.lxd.containers.get(container_name)
-            return None, ("yes", container.state().status)
-        except pylxd.exceptions.LXDAPIException:
-            return None, ("no", "unknown")
+            status = container.state().status
+            return None, ("yes", status.lower())
+        except pylxd.exceptions.LXDAPIException as e:
+            return e, ("no", "unknown")

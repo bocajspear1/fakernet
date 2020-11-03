@@ -271,6 +271,15 @@ class MiniCAServer(DockerBaseModule):
             csr_req.get_subject().L = DEFAULT_CITY
             csr_req.get_subject().O = DEFAULT_ORG
             csr_req.get_subject().OU = DEFAULT_DIV
+            
+            
+
+            altnames = ', '.join(['DNS:'+fqdn]).encode()
+
+            csr_req.add_extensions([crypto.X509Extension(b"subjectAltName", 
+                                                 False, 
+                                                 altnames)])
+
             csr_req.set_pubkey(new_key)
             csr_req.sign(new_key, "sha256")
 
@@ -293,7 +302,7 @@ class MiniCAServer(DockerBaseModule):
             
             resp = requests.post("https://{}".format(result[0]), files=files, data=post_data, verify="{}/ca.crt".format(ca_data_path))
             if resp.status_code != 200:
-                return "Signing failed", None 
+                return "Signing failed: " + resp.text, None 
             
             signed_cert = resp.text
 
