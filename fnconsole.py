@@ -16,6 +16,8 @@ import lib.prompt_builder as prompt_builder
 import tableprint as tp
 import animation
 
+from getpass import getpass
+
 
 import html
 ASCIIART = html.escape("""
@@ -63,7 +65,10 @@ class CommandCompleter(Completer):
         'list_all',
         # 'list_running',
         'save',
-        'restore'
+        'restore',
+        'useradd',
+        'userls',
+        'userdel'
     ]
 
     RUN_COMMANDS = [
@@ -198,6 +203,7 @@ class FakerNetConsole():
 
         self.running = True
         self.current_command = None
+        self.mm.logger.info("Started console")
         
 
     def setup_prompts(self):
@@ -302,6 +308,23 @@ class FakerNetConsole():
             pass
         elif command == "uglobal":
             pass
+        elif command == "userls":
+            error, users = self.mm.list_users()
+            for user in users:
+                print(" * " + user)
+        elif command == "useradd":
+            username = input("username> ")
+            ok = False
+            while not ok:
+                password1 = getpass(prompt="password> ")
+                password2 = getpass(prompt="password (again)> ")
+                if password1 != password2:
+                    print("Passwords do not match")
+                else:
+                    ok = True
+            
+            self.mm.add_user(username, password1)
+            
         elif command == "list_all":
             error, server_list = self.mm.list_all_servers()
             if error is None:

@@ -6,51 +6,82 @@ import importlib
 import os 
 import json
 import re
-from threading import Lock
+import logging
+import hashlib
+from threading import RLock
 
 PORT = 5050
 SAVES_DIR = "./saves"
 
+class HistoryWriter():
+
+    def __init__(self, path="./history.json"):
+        self._outfile = open(path, "a+")
+
+    def add_entry(self, module, func, args):
+        self._outfile.write(json.dumps({
+            "module": module,
+            "func": func,
+            "args": args
+        }) + "\n")
+        self._outfile.flush()
+
 class LockModule():
 
-    def __init__(self, module, lock):
+    def __init__(self, module, mm):
         self._module = module
-        self._lock = lock
+        self.mm = mm
         
     def __getattr__(self, name):
-        if name == "run" or name == "check":
-            with self._lock:
+        if name == "check":
+            with self.mm.lock:
                 return getattr(self._module, name)
         else:
             return getattr(self._module, name)
 
+    def run(self, func, **kwargs):
+        with self.mm.lock:
+            self.mm.depth += 1
+            error, result = self._module.run(func, **kwargs)
+            self.mm.depth -= 1
+            if len(kwargs.keys()) > 0 and self.mm.depth == 0:
+                self.mm.history_writer.add_entry(self._module.__SHORTNAME__, func, kwargs)
+            self.mm.logger.info("Called: %s.%s, args=%s", self._module.__SHORTNAME__, func, str(kwargs))
+
+            return error, result
+
 class RemoteModule():
     
-    def __init__(self, url, requests, shortname, funcs):
+    def __init__(self, mm, url, requests, shortname, funcs):
         self.__SHORTNAME__ = shortname
         self.__FUNCS__ = funcs
         self._r = requests
         self._url = url
+        self.mm = mm
 
     def run(self, func, **kwargs):
         resp = self._r.post(self._url + "/" + self.__SHORTNAME__ + "/run/" + func, data=kwargs)
+        self.mm.logger.info("Remote called: %s.%s, args=%s", self.__SHORTNAME__, func, str(kwargs))
         resp_data = resp.json()
         if not resp_data['ok']:
             return resp_data['error'], None 
         else:
             return None, resp_data['result']
 
-
 class ModuleManager():
 
     def __init__(self, ip=None, db=None, https=False):
+
+        self._user = ""
+        
         if ip is None:
 
             import docker
             from pylxd import Client
             import sqlite3
 
-            self._lock = Lock()
+            self._user = "LOCAL"
+            self.lock = RLock()
             self.modules = {}
             if db != None:
                 self.db = db
@@ -61,9 +92,11 @@ class ModuleManager():
             self.lxd = Client()
             self.ip = None
             self._https = False
+            self.history_writer = HistoryWriter()
+            self.depth = 0
         else:
             import requests
-            self._lock = None
+            self.lock = None
             self.modules = {}
             self.db = None
             self.docker = None
@@ -71,6 +104,20 @@ class ModuleManager():
             self.ip = ip
             self._https = https
             self._r = requests
+            self.history_writer = None
+
+        self._logger = logging.getLogger("fakernet")
+        fileLog = logging.FileHandler("./logs/fakernet.log")
+        formatter = logging.Formatter('%(asctime)s %(levelname)s USER=%(user)s : %(message)s')
+        fileLog.setFormatter(formatter)
+        self._logger.setLevel(logging.INFO)
+        self._logger.handlers = []
+        self._logger.addHandler(fileLog)
+
+        self.logger = logging.LoggerAdapter(self._logger, {
+            "user": self._user
+        })
+
 
     def _get_url(self):
         start = "{}:{}/api/v1".format(self.ip, PORT)
@@ -79,17 +126,100 @@ class ModuleManager():
         else:
             return "https://" + start
 
+    def _hash_password(self, password, salt=None):
+        salt_hex = salt
+        if not salt_hex:
+            salt_hex = os.urandom(16).hex()
+        passhash = hashlib.pbkdf2_hmac('sha256', password.encode(), salt_hex.encode(), 10000)
+        return passhash.hex(), salt_hex
+
+    def check_user(self, username, password):
+        if not self.ip:
+            with self.lock:
+                dbc = self.db.cursor()
+                dbc.execute("SELECT username, password, salt FROM fakernet_users WHERE username=?", (username,))
+                result = dbc.fetchone()
+                if not result:
+                    return "Login failed", None
+                
+                salt = result[2]
+                user_hash, _ = self._hash_password(password, salt)
+                if user_hash != result[1]:
+                    return "Login failed", None
+                else:
+                    return None, True
+
+    def list_users(self):
+        if not self.ip:
+            with self.lock:
+                dbc = self.db.cursor()
+                dbc.execute("SELECT username FROM fakernet_users;") 
+                results = dbc.fetchall()
+                new_list = []
+
+                for user in results:
+                    new_list.append(user[0])
+                return None, new_list
+        else:
+            resp = self._r.get(self._get_url() + "/_users/list")
+
+            resp_data = resp.json()
+            if not resp_data['ok']:
+                return resp_data['error'], None 
+            else:
+                return None, resp_data['result']
+
+    def add_user(self, username, password):
+        if not self.ip:
+            with self.lock:
+                user_hash, salt = self._hash_password(password)
+
+                dbc = self.db.cursor()
+
+                dbc.execute("SELECT user_id FROM fakernet_users WHERE username=?", (username,))
+                if dbc.fetchone():
+                    return "A user of that username already exists", None
+
+                dbc.execute('INSERT INTO fakernet_users (username, password, salt) VALUES (?, ?, ?)', (username, user_hash, salt))
+                self.db.commit()
+                return None, True
+        else:
+            resp = self._r.post(self._get_url() + "/_users/add", data={
+                "username": username,
+                "password": password
+            })
+
+            resp_data = resp.json()
+            if not resp_data['ok']:
+                return resp_data['error'], None 
+            else:
+                return None, resp_data['result']
+    
+    def remove_user(self, username):
+        dbc = self.db.cursor()
+        dbc.execute("DELETE FROM fakernet_users WHERE username=?", (username,))
+        self.db.commit()
+
     def load(self):
         if not self.ip:
+
+            dbc = self.db.cursor()
+
+            dbc.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='fakernet_users';")
+            if dbc.fetchone() is None:
+                dbc.execute("CREATE TABLE fakernet_users (user_id INTEGER PRIMARY KEY, username TEXT, password TEXT, salt TEXT);")
+                self.db.commit()
+
             module_list = os.listdir("./modules")
             for module in module_list:
                 if module.endswith(".py"):
                     temp = importlib.import_module("modules." + module.replace(".py", ""))
                     shortname = temp.__MODULE__.__SHORTNAME__
-                    self.modules[shortname] = LockModule(temp.__MODULE__(self), self._lock)
+                    self.modules[shortname] = LockModule(temp.__MODULE__(self), self)
                     if shortname != "init":
                         # fnconsole manually calls init's check
                         self.modules[shortname].check()
+            self.logger.info("Local ModuleManager loaded successfully")
             return None
         else:
             try:
@@ -100,12 +230,13 @@ class ModuleManager():
                 if not rmodule_data['ok']:
                     return "Got error from server: {}".format(rmodule_data['error'])
                 for module_name in rmodule_data['result']:
-                    self.modules[module_name] = RemoteModule(self._get_url(), self._r, module_name, rmodule_data['result'][module_name])
+                    self.modules[module_name] = RemoteModule(self, self._get_url(), self._r, module_name, rmodule_data['result'][module_name])
             except self._r.exceptions.SSLError:
                 return "Could not connect to {}:{} via HTTPS".format(self.ip, PORT)
             except self._r.exceptions.ConnectionError:
                 return "Failed to connect to server at {}:{}".format(self.ip, PORT)
 
+            self.logger.info("Remote ModuleManager loaded successfully")
             return None
 
     def build_all(self):
@@ -163,6 +294,7 @@ class ModuleManager():
             out_file.write(outdata)
             out_file.close()
 
+            self.logger.info("Local save completed successfully")
             return None, True
         else:
             try:
@@ -173,6 +305,7 @@ class ModuleManager():
                 if not rmodule_data['ok']:
                     return "Got error from server: {}".format(rmodule_data['error'])
                 else:
+                    self.logger.info("Remote save completed successfully")
                     return None, True
             except self._r.exceptions.SSLError:
                 return "Could not connect to {}:{} via HTTPS".format(self.ip, PORT), None
@@ -198,6 +331,7 @@ class ModuleManager():
                 if module.__SHORTNAME__ in all_save_data:
                     module.restore(all_save_data[module.__SHORTNAME__])
 
+            self.logger.info("Local restore completed successfully")
             return None, True
         else:
             try:
@@ -208,6 +342,7 @@ class ModuleManager():
                 if not rmodule_data['ok']:
                     return "Got error from server: {}".format(rmodule_data['error'])
                 else:
+                    self.logger.info("Remote restore completed successfully")
                     return None, True
             except self._r.exceptions.SSLError:
                 return "Could not connect to {}:{} via HTTPS".format(self.ip, PORT)

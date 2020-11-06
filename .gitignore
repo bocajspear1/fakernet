@@ -7,3 +7,5 @@ work/*
 **/__pycache__/*
 docs/out/*.html
 saves/*
+logs/*.log
+history.json

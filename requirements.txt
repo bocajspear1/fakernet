@@ -10,3 +10,4 @@ markdown
 animation
 gunicorn
 webdavclient3
+Flask-HTTPAuth

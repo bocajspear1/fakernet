@@ -1,6 +1,7 @@
 from lib.base_module import BaseModule
 import docker 
 import subprocess
+from lib.util import clean_ovs
 
 NETWORK_NAME = "fnexternal0"
 
@@ -61,6 +62,8 @@ class FakernetInit(BaseModule):
         err, netallocs = self.mm['netreserve'].run('list')
         if len(netallocs['rows']) == 0:
             self.init_needed = True
+        else:
+            clean_ovs()
         try:
             self.mm.docker.networks.get(NETWORK_NAME)
         except docker.errors.NotFound:
