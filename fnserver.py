@@ -14,11 +14,9 @@ from lib.module_manager import ModuleManager
 
 from flask.logging import default_handler
 
-
 def create_app():
     app = Flask(__name__)
-
-    
+    app.secret_key = 'aasdfasfd'
 
     with app.app_context():
         current_app.db = sqlite3.connect('fakernet.db')
@@ -57,7 +55,6 @@ app = create_app()
 auth = HTTPBasicAuth()
 
 
-
 @auth.verify_password
 def verify_password(username, password):
     if request.remote_addr == "127.0.0.1":
@@ -72,7 +69,10 @@ def verify_password(username, password):
 @app.route('/')
 @auth.login_required
 def authenticate():
-    return 'FakerNet API'
+    return {
+        "ok": True,
+        "result": 'g.csrf_token'
+    }
 
 @app.route('/api/v1/<module_name>/run/<function>', methods = ['POST'])
 @auth.login_required

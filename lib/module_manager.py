@@ -196,9 +196,22 @@ class ModuleManager():
                 return None, resp_data['result']
     
     def remove_user(self, username):
-        dbc = self.db.cursor()
-        dbc.execute("DELETE FROM fakernet_users WHERE username=?", (username,))
-        self.db.commit()
+        if not self.ip:
+            with self.lock:
+                dbc = self.db.cursor()
+                dbc.execute("DELETE FROM fakernet_users WHERE username=?", (username,))
+                self.db.commit()
+
+        else:
+            resp = self._r.post(self._get_url() + "/_users/delete", data={
+                "username": username
+            })
+
+            resp_data = resp.json()
+            if not resp_data['ok']:
+                return resp_data['error'], None 
+            else:
+                return None, resp_data['result']
 
     def load(self):
         if not self.ip:

@@ -292,7 +292,7 @@ class NetReservation(BaseModule):
             switch = network[1]
             is_hop = network[2]
 
-            if is_hop != 1:
+            if is_hop != 1 and switch != "":
                 new_network_obj = ipaddress.ip_network(net_addr)
                 self._set_switch_ip(switch, str(list(new_network_obj.hosts())[0]) + "/" + str(new_network_obj.prefixlen))
                

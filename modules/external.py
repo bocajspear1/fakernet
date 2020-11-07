@@ -60,7 +60,7 @@ class External(BaseModule):
             new_rows = []
             for row in listing['rows']:
                 if row[3] == "":
-                    new_rows.append(row[:-1])
+                    new_rows.append((row[0], row[1], row[2]))
             
             return None, {
                 "rows": new_rows,
@@ -76,9 +76,6 @@ class External(BaseModule):
             ip_addr = kwargs['ip_addr']
             host_desc = kwargs['host_desc']
 
-            dbc.execute('INSERT INTO externalhost (fqdn, ip_addr, host_desc) VALUES (?, ?, ?)', (fqdn, ip_addr, host_desc))
-            self.mm.db.commit()
-
             # Allocate our IP address
             error, _ = self.mm['ipreserve'].run("add_ip", ip_addr=ip_addr, description="External - {}".format(fqdn))
             if error is not None:
@@ -86,9 +83,13 @@ class External(BaseModule):
 
             error, _ = self.mm['dns'].run("add_host", fqdn=fqdn, ip_addr=ip_addr)
             if error is not None:
+                self.mm['ipreserve'].run("remove_ip", ip_addr=ip_addr)
                 return error, None 
 
-            return None, True
+            dbc.execute('INSERT INTO externalhost (fqdn, ip_addr, host_desc) VALUES (?, ?, ?)', (fqdn, ip_addr, host_desc))
+            self.mm.db.commit()
+
+            return None, dbc.lastrowid
         elif func == "remove_external_host":
             perror, _ = self.validate_params(self.__FUNCS__['remove_external_host'], kwargs)
             if perror is not None:
@@ -97,20 +98,19 @@ class External(BaseModule):
             external_id = kwargs['id']
             
             # Get server ip from database
-            dbc.execute("SELECT * FROM externalhost WHERE host_id=?", (external_id,))
+            dbc.execute("SELECT host_id, fqdn, ip_addr FROM externalhost WHERE host_id=?", (external_id,))
             result = dbc.fetchone()
             if not result:
                 return "External host does not exist", None
 
-            # Remove the IP allocation
-            error, _ = self.mm['ipreserve'].run("remove_ip", ip_addr=ip_addr)
-            if error is not None:
-                return error, None
+            fqdn = result[1]
+            ip_addr = result[2]
 
             # Remove the host from the DNS server
             err, _ = self.mm['dns'].run("remove_host", fqdn=fqdn, ip_addr=ip_addr)
-            if err is not None:
-                return err, None
+
+            # Remove the IP allocation
+            err, _ = self.mm['ipreserve'].run("remove_ip", ip_addr=ip_addr)
 
             # Remove from database
             dbc.execute("DELETE FROM externalhost WHERE host_id=?", (external_id,))
@@ -122,9 +122,9 @@ class External(BaseModule):
             if perror is not None:
                 return perror, None
 
-            return self.mm['netreserve'].run("add_network", net_addr=kwargs['net_addr'], description="External Network", switch="")
+            return self.mm['netreserve'].run("add_network", net_addr=kwargs['net_addr'], description="External Network - " + kwargs['description'], switch="")
         elif func == "remove_external_network":
-            perror, _ = self.validate_params(self.__FUNCS__['add_external_network'], kwargs)
+            perror, _ = self.validate_params(self.__FUNCS__['remove_external_network'], kwargs)
             if perror is not None:
                 return perror, None
 
