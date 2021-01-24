@@ -140,7 +140,17 @@ class DNSServer(DockerBaseModule):
         "smart_remove_root_server": {
             "_desc": "Remove root domain server (e.g. .com or .net), automatically deleting entries in the parent server",
             "id": "INTEGER"
-        }
+        },
+        "smart_add_external_subdomain": {
+            "_desc": "Add subdomain that points to an external DNS server",
+            "fqdn": "TEXT",
+            "ip_addr": "IP_ADDR"
+        },
+        "smart_remove_external_subdomain": {
+            "_desc": "Add subdomain that points to an external DNS server",
+            "fqdn": "TEXT",
+            "ip_addr": "IP_ADDR"
+        },
     } 
 
     __SHORTNAME__  = "dns"
@@ -959,7 +969,91 @@ class DNSServer(DockerBaseModule):
                 return error, None
 
             return None, True
+        elif func == "smart_add_external_subdomain":
+            perror, _ = self.validate_params(self.__FUNCS__['smart_add_external_subdomain'], kwargs)
+            if perror is not None:
+                return perror, None
 
+            fqdn = kwargs['fqdn']
+            ip_addr = kwargs['ip_addr']
+
+            found = False
+            counter = 0
+            fqdn_split = fqdn.split(".")
+            found_domain = ""
+            parent_server_id = None
+
+            while found == False and counter < len(fqdn_split):
+                search_domain = '.'.join(fqdn_split[counter:])
+                parent_server_id = self._get_dns_server(search_domain)
+                if parent_server_id is not None:
+                    found = True
+                    search_split = search_domain.split(".")
+                    
+                    found_domain = '.'.join(search_split[1:])
+                counter += 1
+
+            if found == False:
+                return "Could not find a parent domain for {}".format(fqdn), None 
+
+            if not fqdn.endswith("."):
+                fqdn = fqdn + "."
+            ns_name = "ns1.{}".format(fqdn)
+            
+            rerror, _ = self.run("add_record", id=parent_server_id, zone=found_domain, direction="fwd", type='NS', name=fqdn, value=ns_name)
+            if rerror is not None:
+                return rerror, None
+
+            rerror, _ = self.run("add_record", id=parent_server_id, zone=found_domain, direction="fwd", type='A', name=ns_name, value=ip_addr)
+            if rerror is not None:
+                return rerror, None
+
+            error, _ = self._rndc_reload(parent_server_id)
+            if error is not None:
+                return error, None
+            
+            return None, True
+        elif func == "smart_remove_external_subdomain":
+            perror, _ = self.validate_params(self.__FUNCS__['smart_remove_external_subdomain'], kwargs)
+            if perror is not None:
+                return perror, None
+            
+            fqdn = kwargs['fqdn']
+            ip_addr = kwargs['ip_addr']
+
+            # Find the parent server, this will now go to the parent since the child server has been deleted
+            found = False
+            counter = 0
+            fqdn_split = fqdn.split(".")
+            found_domain = ""
+            parent_server_id = None
+
+            while found == False and counter < len(fqdn_split):
+                search_domain = '.'.join(fqdn_split[counter:])
+                parent_server_id = self._get_dns_server(search_domain)
+                if parent_server_id is not None:
+                    found = True
+                    search_split = search_domain.split(".")
+                    found_domain = '.'.join(search_split[1:])
+                counter += 1
+
+            if not fqdn.endswith("."):
+                fqdn = fqdn + "."
+            ns_name = "ns1.{}".format(fqdn)
+            
+            rerror, _ = self.run("remove_record", id=parent_server_id, zone=found_domain, direction="fwd", type='NS', name=fqdn, value=ns_name)
+            if rerror is not None:
+                return rerror, None
+
+            rerror, _ = self.run("remove_record", id=parent_server_id, zone=found_domain, direction="fwd", type='A', name=ns_name, value=ip_addr)
+            if rerror is not None:
+                return rerror, None
+
+            error, _ = self._rndc_reload(parent_server_id)
+            if error is not None:
+                return error, None
+            
+            return None, True
         else:
             return "Invalid function '{}.{}'".format(self.__SHORTNAME__, func), None
 

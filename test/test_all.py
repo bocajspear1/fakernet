@@ -44,7 +44,7 @@ if __name__ == '__main__':
     suite.addTests(loader.loadTestsFromModule(test_network_reservation))
     suite.addTests(loader.loadTestsFromModule(test_external))
     # suite.addTests(loader.loadTestsFromModule(test_lxd))
-    # suite.addTests(loader.loadTestsFromModule(test_dns))
+    suite.addTests(loader.loadTestsFromModule(test_dns))
     # suite.addTests(loader.loadTestsFromModule(test_nethop))
     # suite.addTests(loader.loadTestsFromModule(test_simplemail))
     # suite.addTests(loader.loadTestsFromModule(test_inspircd))

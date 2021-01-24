@@ -62,7 +62,44 @@ class TestDNS(unittest.TestCase):
         except dns.exception.Timeout:
             pass
 
-        
+    def test_dns_external_subdomain(self):
+
+        SECOND_IP = '172.16.3.41'
+
+        error, _ = self.mm['dns'].run("smart_add_external_subdomain", fqdn="subdomain.test", ip_addr=SECOND_IP)
+        self.assertTrue(error == None, msg=error)
+
+        error, server_id = self.mm['dns'].run("add_server", ip_addr=SECOND_IP, description="test_dns2", domain="subdomain.test")
+        self.assertTrue(error == None)
+        error, result = self.mm['dns'].run("add_zone", id=server_id, direction="fwd", zone="subdomain.test")
+        self.assertTrue(error == None)
+        error, result = self.mm['dns'].run("add_forwarder", id=server_id, ip_addr=TEST_DNS_ROOT)
+        self.assertTrue(error == None)
+
+        time.sleep(20)
+
+        root_resolver = dns.resolver.Resolver()
+        root_resolver.nameservers = [TEST_DNS_ROOT]
+
+        answers = root_resolver.query('ns1.subdomain.test', 'A')
+        self.assertTrue(answers is not None)
+        for resp in answers.response.answer:
+            for item in resp.items:
+                self.assertTrue(SECOND_IP == item.to_text(), msg=item)
+
+        error, _ = self.mm['dns'].run("remove_server", id=server_id)
+        self.assertTrue(error == None)
+
+        error, _ = self.mm['dns'].run("smart_remove_external_subdomain", fqdn="subdomain.test", ip_addr=SECOND_IP)
+        self.assertTrue(error == None, msg=error)
+
+        try:
+            answers = root_resolver.query('subdomain.test', 'NS')
+            self.fail()
+        except dns.resolver.NXDOMAIN: 
+            pass
+        except dns.exception.Timeout:
+            pass
 
     # @unittest.skip("long...")
     def test_dns_smart_subdomain(self):
@@ -138,6 +175,8 @@ class TestDNS(unittest.TestCase):
         root_ip_addr = '172.16.3.12'
         error, server_1_id = self.mm['dns'].run("smart_add_root_server", root_name="com", ip_addr=root_ip_addr)
         self.assertTrue(error == None, msg=error)
+
+        time.sleep(20)
 
         root_resolver = dns.resolver.Resolver()
         root_resolver.nameservers = [TEST_DNS_ROOT]
