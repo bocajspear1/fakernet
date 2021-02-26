@@ -9,3 +9,4 @@ docs/out/*.html
 saves/*
 logs/*.log
 history.json
+.fnhistory

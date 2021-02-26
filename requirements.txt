@@ -11,3 +11,4 @@ animation
 gunicorn
 webdavclient3
 Flask-HTTPAuth
+psutil

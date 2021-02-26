@@ -11,6 +11,7 @@ import hashlib
 from threading import RLock
 
 PORT = 5050
+PORT_HTTPS = 5051
 SAVES_DIR = "./saves"
 
 class HistoryWriter():
@@ -60,7 +61,7 @@ class RemoteModule():
         self.mm = mm
 
     def run(self, func, **kwargs):
-        resp = self._r.post(self._url + "/" + self.__SHORTNAME__ + "/run/" + func, data=kwargs)
+        resp = self._r.post(self._url + "/" + self.__SHORTNAME__ + "/run/" + func, data=kwargs, verify=not self._https_ignore)
         self.mm.logger.info("Remote called: %s.%s, args=%s", self.__SHORTNAME__, func, str(kwargs))
         resp_data = resp.json()
         if not resp_data['ok']:
@@ -70,7 +71,7 @@ class RemoteModule():
 
 class ModuleManager():
 
-    def __init__(self, ip=None, db=None, https=False):
+    def __init__(self, ip=None, db=None, https=False, https_ignore=False):
 
         self._user = ""
         
@@ -92,6 +93,8 @@ class ModuleManager():
             self.lxd = Client()
             self.ip = None
             self._https = False
+            self._port = 0
+            self._https_ignore = https_ignore
             self.history_writer = HistoryWriter()
             self.depth = 0
         else:
@@ -103,6 +106,11 @@ class ModuleManager():
             self.lxd = None
             self.ip = ip
             self._https = https
+            if https:
+                self._port = PORT_HTTPS
+            else:
+                self._port = PORT
+            self._https_ignore = https_ignore
             self._r = requests
             self.history_writer = None
 
@@ -120,8 +128,9 @@ class ModuleManager():
 
 
     def _get_url(self):
-        start = "{}:{}/api/v1".format(self.ip, PORT)
+        start = "{}:{}/api/v1".format(self.ip, self._port)
         if not self._https:
+            
             return "http://" + start
         else:
             return "https://" + start
@@ -132,6 +141,15 @@ class ModuleManager():
             salt_hex = os.urandom(16).hex()
         passhash = hashlib.pbkdf2_hmac('sha256', password.encode(), salt_hex.encode(), 10000)
         return passhash.hex(), salt_hex
+
+    def run_json_command(self, json_command):
+        if 'module' not in json_command:
+            return "Command does not have key 'module'", None
+        elif 'func' not in json_command:
+            return "Command does not have key 'func'", None
+        if json_command['module'] not in self.modules:
+            return "Invalid module '{}'".format(json_command['module'])
+        return self.modules[json_command['module']].run(json_command['func'], **json_command['args'])
 
     def check_user(self, username, password):
         if not self.ip:
@@ -161,7 +179,7 @@ class ModuleManager():
                     new_list.append(user[0])
                 return None, new_list
         else:
-            resp = self._r.get(self._get_url() + "/_users/list")
+            resp = self._r.get(self._get_url() + "/_users/list", verify=not self._https_ignore)
 
             resp_data = resp.json()
             if not resp_data['ok']:
@@ -184,7 +202,7 @@ class ModuleManager():
                 self.db.commit()
                 return None, True
         else:
-            resp = self._r.post(self._get_url() + "/_users/add", data={
+            resp = self._r.post(self._get_url() + "/_users/add", verify=not self._https_ignore, data={
                 "username": username,
                 "password": password
             })
@@ -203,7 +221,7 @@ class ModuleManager():
                 self.db.commit()
 
         else:
-            resp = self._r.post(self._get_url() + "/_users/delete", data={
+            resp = self._r.post(self._get_url() + "/_users/delete", verify=not self._https_ignore, data={
                 "username": username
             })
 
@@ -236,7 +254,7 @@ class ModuleManager():
             return None
         else:
             try:
-                resp = self._r.get(self._get_url() + "/_modules/list")
+                resp = self._r.get(self._get_url() + "/_modules/list", verify=not self._https_ignore)
                 if resp.status_code != 200:
                     return "Got error code {} from server".format(resp.status_code)
                 rmodule_data = resp.json()
@@ -245,9 +263,9 @@ class ModuleManager():
                 for module_name in rmodule_data['result']:
                     self.modules[module_name] = RemoteModule(self, self._get_url(), self._r, module_name, rmodule_data['result'][module_name])
             except self._r.exceptions.SSLError:
-                return "Could not connect to {}:{} via HTTPS".format(self.ip, PORT)
+                return "Could not connect to {}:{} via HTTPS".format(self.ip, self._port)
             except self._r.exceptions.ConnectionError:
-                return "Failed to connect to server at {}:{}".format(self.ip, PORT)
+                return "Failed to connect to server at {}:{}".format(self.ip, self._port)
 
             self.logger.info("Remote ModuleManager loaded successfully")
             return None
@@ -270,7 +288,7 @@ class ModuleManager():
                 full_list += module.get_list()
             return None, full_list
         else:
-            resp = self._r.get(self._get_url() + "/_servers/list_all").json()
+            resp = self._r.get(self._get_url() + "/_servers/list_all", verify=not self._https_ignore).json()
             if resp['ok']:
                 return None, resp['result']
             else:
@@ -311,7 +329,7 @@ class ModuleManager():
             return None, True
         else:
             try:
-                resp = self._r.get(self._get_url() + "/_servers/save_state/{}".format(save_name))
+                resp = self._r.get(self._get_url() + "/_servers/save_state/{}".format(save_name), verify=not self._https_ignore)
                 if resp.status_code != 200:
                     return "Got error code {} from server".format(resp.status_code)
                 rmodule_data = resp.json()
@@ -321,9 +339,9 @@ class ModuleManager():
                     self.logger.info("Remote save completed successfully")
                     return None, True
             except self._r.exceptions.SSLError:
-                return "Could not connect to {}:{} via HTTPS".format(self.ip, PORT), None
+                return "Could not connect to {}:{} via HTTPS".format(self.ip, self._port), None
             except self._r.exceptions.ConnectionError:
-                return "Failed to connect to server at {}:{}".format(self.ip, PORT), None
+                return "Failed to connect to server at {}:{}".format(self.ip, self._port), None
 
     def restore_state(self, save_name="default"):
         if not self.ip:
@@ -348,7 +366,7 @@ class ModuleManager():
             return None, True
         else:
             try:
-                resp = self._r.get(self._get_url() + "/_servers/restore_state/{}".format(save_name))
+                resp = self._r.get(self._get_url() + "/_servers/restore_state/{}".format(save_name), verify=not self._https_ignore)
                 if resp.status_code != 200:
                     return "Got error code {} from server".format(resp.status_code)
                 rmodule_data = resp.json()
@@ -358,6 +376,6 @@ class ModuleManager():
                     self.logger.info("Remote restore completed successfully")
                     return None, True
             except self._r.exceptions.SSLError:
-                return "Could not connect to {}:{} via HTTPS".format(self.ip, PORT)
+                return "Could not connect to {}:{} via HTTPS".format(self.ip, self._port)
             except self._r.exceptions.ConnectionError:
-                return "Failed to connect to server at {}:{}".format(self.ip, PORT)
+                return "Failed to connect to server at {}:{}".format(self.ip, self._port)

@@ -6,11 +6,15 @@ import sys
 import sqlite3
 import sys
 import logging
+import platform
 
-from flask import Flask, g, jsonify, current_app, request
+from flask import Flask, g, jsonify, current_app, request, render_template
 from flask_httpauth import HTTPBasicAuth
 
+import psutil
+
 from lib.module_manager import ModuleManager
+from lib.version import FAKERNET_VERSION
 
 from flask.logging import default_handler
 
@@ -58,11 +62,11 @@ auth = HTTPBasicAuth()
 @auth.verify_password
 def verify_password(username, password):
     if request.remote_addr == "127.0.0.1":
-        app.logger.warning("Accessed from localhost, bypassing authentication!")
+        # app.logger.warning("Accessed from localhost, bypassing authentication!")
         return "ok"
     error, _ = current_app.mm.check_user(username, password)
     if not error:
-        app.logger.warning("User %s logged in successfully", username)
+        # app.logger.warning("User %s logged in successfully", username)
         return username
 
 
@@ -72,6 +76,26 @@ def authenticate():
     return {
         "ok": True,
         "result": 'g.csrf_token'
+    }
+
+@app.route('/status')
+@auth.login_required
+def status():
+    return render_template('status.html', version=FAKERNET_VERSION)
+
+@app.route('/system_data')
+@auth.login_required
+def status_data():
+    system_info = "{} - {} {}".format(platform.node(), platform.system(), platform.release())
+    memory = psutil.virtual_memory() 
+    main_disk = psutil.disk_usage('/')
+    return {
+        "system": system_info,
+        "memory_used": memory.used,
+        "memory_total": memory.total,
+        "cpu_percent": psutil.cpu_percent(interval=.5),
+        "disk_used": main_disk.used,
+        "disk_total": main_disk.total
     }
 
 @app.route('/api/v1/<module_name>/run/<function>', methods = ['POST'])

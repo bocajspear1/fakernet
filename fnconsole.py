@@ -5,9 +5,13 @@
 import shlex
 import textwrap
 import sys
+import argparse
+import os
+import json
 
 from prompt_toolkit import PromptSession, prompt, print_formatted_text, HTML 
 from prompt_toolkit.completion import Completer, Completion
+from prompt_toolkit.history import FileHistory
 
 from lib.module_manager import ModuleManager
 import lib.validate
@@ -154,29 +158,38 @@ class CommandCompleter(Completer):
 
 class FakerNetConsole():
 
-    def __init__(self):
+    def __init__(self, ip="127.0.0.1"):
 
-        
         wait = animation.Wait(text="Looking for local FakerNet server")
         wait.start()
-        self.mm = ModuleManager(ip="127.0.0.1")
+        self.mm = ModuleManager(ip=ip)
         error = self.mm.load()
         wait.stop()
         if error is not None:
-            print_formatted_text(HTML('\n\n<ansired>{}</ansired>'.format(error)))
-            wait = animation.Wait(text="FakerNet console is starting")
-            wait.start()
-            self.mm = ModuleManager()
-            self.mm.load()
+            self.mm = ModuleManager(ip=ip, https=True, https_ignore=True)
+            error = self.mm.load()
             wait.stop()
+            if error is not None:
+                if ip == "127.0.0.1":
+                    print_formatted_text(HTML('\n\n<ansired>{}</ansired>'.format(error)))
+                    wait = animation.Wait(text="FakerNet console is starting")
+                    wait.start()
+                    self.mm = ModuleManager()
+                    self.mm.load()
+                    wait.stop()
 
-            self.mm['init'].check()
-            self.host = "local"
+                    self.mm['init'].check()
+                    self.host = "local"
+                else:
+                    print_formatted_text(HTML('<ansired>Failed to connect to the server at {}</ansired>'.format(ip)))
+                    sys.exit(1)
+            else:
+                self.host = self.mm.ip
         else:
             self.host = self.mm.ip
             
-
-        self.session = PromptSession()
+        file_history = FileHistory(".fnhistory")
+        self.session = PromptSession(history=file_history)
         self.global_vars = {
             "AUTO_ADD": False
         }
@@ -268,7 +281,18 @@ class FakerNetConsole():
             
         print_formatted_text(HTML('<ansigreen>{}</ansigreen>'.format("Setup complete!")))
 
+    def print_result(self, error, result):
+        if error is not None:
+            print_formatted_text(HTML('<ansired>Error: {}</ansired>'.format(error)))
+        else:
+            if isinstance(result, dict) and 'rows' in result and 'columns' in result:
+                print_table(result['rows'], result['columns'])
+            else:
+                print_formatted_text(HTML('<ansigreen>{}.{}: OK</ansigreen>'.format(module_name, function_name)))
 
+    def run_module_function(self, module_name, function_name, args):
+        error, result = self.mm[module_name].run(function_name, **args)
+        self.print_result(error, result)
 
     def start(self):
         while self.running:
@@ -415,14 +439,7 @@ class FakerNetConsole():
 
             function_name = self.current_command['function_name']
             
-            error, result = self.mm[module_name].run(function_name, **self.current_command['vars'])
-            if error is not None:
-                print_formatted_text(HTML('<ansired>Error: {}</ansired>'.format(error)))
-            else:
-                if isinstance(result, dict) and 'rows' in result and 'columns' in result:
-                    print_table(result['rows'], result['columns'])
-                else:
-                    print_formatted_text(HTML('<ansigreen>OK</ansigreen>'))
+            self.run_module_function(module_name, function_name, self.current_command['vars'])
 
         else:
             print_formatted_text(HTML('<ansired>Error: Invalid command "{}"</ansired>'.format(command)))
@@ -479,8 +496,41 @@ class FakerNetConsole():
             print_formatted_text(HTML('<ansired>Error: Invalid function "{}"</ansired>'.format(function)))
 
 def main():
-    console = FakerNetConsole()
+    parser = argparse.ArgumentParser(description='Process some integers.')
+    parser.add_argument('-j', '--json', help='Run commands from a JSON file and go to the console')
+    parser.add_argument('-s', '--server', help='Server to connect to (defaults to 127.0.0.1)')
+    args = parser.parse_args()
+
+    console = None
+    if args.server:
+        console = FakerNetConsole(ip=args.server)
+    else:
+        console = FakerNetConsole()
+
+    
+    if args.json:
+        if os.path.exists(args.json):
+            print("Running commands from file '{}'".format(args.json))
+            json_file = open(args.json, "r")
+            lines = json_file.read().split("\n")
+            json_file.close()
+            counter = 1
+            for line in lines:
+                line = line.strip()
+                json_line = json.loads(line)
+                
+                error, result = console.mm.run_json_command(json_line)
+                if error is not None:
+                    print_formatted_text(HTML("<ansired>Line {} error: {}</ansired>".format(counter, error)))
+                else:
+                    console.print_result(error, result)
+                counter += 1
+        else:
+            print_formatted_text(HTML("<ansired>!!! - ERROR: JSON file '{}' not found</ansired>".format(args.json)))
     console.start()
+
+    
+    
     print('Shutting down console...')
 
 if __name__ == '__main__':

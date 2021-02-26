@@ -21,6 +21,7 @@ if __name__ == '__main__':
 
     parser = argparse.ArgumentParser()
     parser.add_argument('-f', '--force', action='store_true', help="Force tests without prompting for clearing everything")
+    parser.add_argument('-w', '--web', action='store_true', help="Run tests through the web server rather than locally")
 
     args = parser.parse_args()
     if not args.force:
@@ -41,15 +42,15 @@ if __name__ == '__main__':
     suite.addTests(loader.loadTestsFromModule(test_base))
     # suite.addTests(loader.loadTestsFromModule(test_minica))
     
-    suite.addTests(loader.loadTestsFromModule(test_network_reservation))
-    suite.addTests(loader.loadTestsFromModule(test_external))
+    # suite.addTests(loader.loadTestsFromModule(test_network_reservation))
+    # suite.addTests(loader.loadTestsFromModule(test_external))
     # suite.addTests(loader.loadTestsFromModule(test_lxd))
-    suite.addTests(loader.loadTestsFromModule(test_dns))
+    # suite.addTests(loader.loadTestsFromModule(test_dns))
     # suite.addTests(loader.loadTestsFromModule(test_nethop))
     # suite.addTests(loader.loadTestsFromModule(test_simplemail))
     # suite.addTests(loader.loadTestsFromModule(test_inspircd))
     # suite.addTests(loader.loadTestsFromModule(test_bepasty))
-    # suite.addTests(loader.loadTestsFromModule(test_alpine_webdav))
+    suite.addTests(loader.loadTestsFromModule(test_alpine_webdav))
     # suite.addTests(loader.loadTestsFromModule(test_tinyproxy))
     # suite.addTests(loader.loadTestsFromModule(test_mattermost))
 

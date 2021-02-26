@@ -8,6 +8,7 @@ FakerNet is a framework to quickly build internet-like services rapidly for home
 * Docker
 * LXD
 * Open vSwitch
+* Quagga
 
 ## Supported Services
 
@@ -20,6 +21,8 @@ FakerNet is a framework to quickly build internet-like services rapidly for home
 * WebDAV
 * [Mattermost](https://mattermost.com/) (Slack alternative)
 * IRC Server [inspircd](https://www.inspircd.org/)
+* Proxy
+  * [Tinyproxy](http://tinyproxy.github.io/)
 
 ## Not-yet-supported Services
 
@@ -52,6 +55,7 @@ An installation script for Ubuntu (tested on Ubuntu 18.04) is available in `scri
 * git
 * quagga routing services
 * traceroute
+* Python Development files (e.g. `python3-dev` on Ubuntu)
 
 For Ubuntu, (which FakerNet has been tested on), this is the command:
 ```

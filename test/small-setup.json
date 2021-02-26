@@ -1,0 +1,2 @@
+{"module": "netreserve", "func": "add_network", "args": {"description": "Temp test network", "net_addr": "172.16.10.0/24", "switch": "testnet1"}}
+{"module": "lxd", "func": "add_container", "args": {"ip_addr": "172.16.10.2", "fqdn": "filetest1.test", "template": "ubuntu_1804_base", "password": "testtest"}}

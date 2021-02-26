@@ -121,7 +121,7 @@ class LXDManager(LXDBaseModule):
             new_results = []
             for row in results:
                 new_row = list(row)
-                container_name = row[1].split(".")[0]
+                container_name = row[1].replace(".", "-")
                 _, status = self.lxd_get_status(container_name)
                 new_row.append(status[0])
                 new_row.append(status[1])

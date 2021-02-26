@@ -1,3 +1,4 @@
 #!/bin/sh
 . ./venv/bin/activate
-./venv/bin/gunicorn fnserver:app --bind 127.0.0.1:5050 --access-logfile ./logs/fakernet-access.log
+# ./venv/bin/gunicorn fnserver:app --bind 127.0.0.1:5050 --access-logfile ./logs/fakernet-access.log
+./venv/bin/gunicorn web.fnserver:app --certfile=cert.pem --keyfile=key.pem --bind 0.0.0.0:5051 --access-logfile ./logs/fakernet-access.log
