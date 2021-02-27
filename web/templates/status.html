@@ -14,7 +14,20 @@
         <div class="container">
             <div class="row">
                 <div class="col-sm-5">
-                    hi
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Module</th>
+                                <th>ID</th>
+                                <th>IP Address</th>
+                                <th>Description</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody id="system_list">
+
+                        </tbody>
+                    </table>
                 </div>  
                 <div class="col-sm-7">
                     <h2 id="system_name">&nbsp;</h2>
@@ -27,62 +40,6 @@
                 </div>
             </div>
         </div>
-        <script>
-
-            function bytes_to_gb(value) {
-                return ((( value  / 1024.0) / 1024) / 1024).toFixed(2);
-            }
-
-            function update_system_info() {
-                const http = new XMLHttpRequest();
-            
-
-                http.onreadystatechange = (e) => {
-                    if (http.readyState == 4) {
-                        system_data = JSON.parse(http.responseText); 
-
-                        document.getElementById("system_name").textContent = system_data['system'];
-                        document.getElementById("cpu_percent").setAttribute("value", system_data['cpu_percent']);
-                        if (system_data['cpu_percent'] < 60.0) {
-                            document.getElementById("cpu_percent").setAttribute("class", 'tertiary');
-                        } else {
-                            document.getElementById("cpu_percent").setAttribute("class", 'secondary');
-                        }
-
-                        var total_mem_gb = bytes_to_gb(system_data['memory_total']);
-                        var used_mem_gb = bytes_to_gb(system_data['memory_used'])
-                        document.getElementById("mem_details").textContent = used_mem_gb + " GB/" + total_mem_gb + " GB";
-
-
-                        var mem_percent = (((system_data['memory_used']+0.0) / system_data['memory_total']) * 100.0 ).toFixed(2);
-                        document.getElementById("mem_percent").setAttribute("value", mem_percent);
-                        if (mem_percent < 75.0) {
-                            document.getElementById("mem_percent").setAttribute("class", 'tertiary');
-                        } else {
-                            document.getElementById("mem_percent").setAttribute("class", 'secondary');
-                        }
-
-                        var disk_total = bytes_to_gb(system_data['disk_total']);
-                        var disk_used = bytes_to_gb(system_data['disk_used']);
-                        var disk_percent = (((system_data['disk_used']+0.0) / system_data['disk_total']) * 100.0 ).toFixed(2);
-                        document.getElementById("disk_percent").setAttribute("value", disk_percent);
-                        document.getElementById("disk_details").textContent = disk_used + " GB/" + disk_total + " GB";
-                        if (disk_percent < 80.0) {
-                            document.getElementById("disk_percent").setAttribute("class", 'tertiary');
-                        } else {
-                            document.getElementById("disk_percent").setAttribute("class", 'secondary');
-                        }
-
-                    }
-                }
-
-                http.open("GET", 'system_data');
-                http.send();
-            }
-
-            update_system_info();
-            setInterval(update_system_info, 3000);
-            
-        </script>
+        <script src="static/status.js"></script>
     </body>
 </html>

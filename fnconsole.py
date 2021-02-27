@@ -288,7 +288,7 @@ class FakerNetConsole():
             if isinstance(result, dict) and 'rows' in result and 'columns' in result:
                 print_table(result['rows'], result['columns'])
             else:
-                print_formatted_text(HTML('<ansigreen>{}.{}: OK</ansigreen>'.format(module_name, function_name)))
+                print_formatted_text(HTML('<ansigreen>OK</ansigreen>'))
 
     def run_module_function(self, module_name, function_name, args):
         error, result = self.mm[module_name].run(function_name, **args)

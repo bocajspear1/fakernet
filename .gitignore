@@ -5,7 +5,7 @@ fakernet.db
 work/*
 !work/.gitkeep
 **/__pycache__/*
-docs/out/*.html
+docs/out/*
 saves/*
 logs/*.log
 history.json

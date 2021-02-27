@@ -53,12 +53,13 @@ class LockModule():
 
 class RemoteModule():
     
-    def __init__(self, mm, url, requests, shortname, funcs):
+    def __init__(self, mm, url, requests, shortname, funcs, https_ignore=False):
         self.__SHORTNAME__ = shortname
         self.__FUNCS__ = funcs
         self._r = requests
         self._url = url
         self.mm = mm
+        self._https_ignore = https_ignore
 
     def run(self, func, **kwargs):
         resp = self._r.post(self._url + "/" + self.__SHORTNAME__ + "/run/" + func, data=kwargs, verify=not self._https_ignore)
@@ -261,7 +262,7 @@ class ModuleManager():
                 if not rmodule_data['ok']:
                     return "Got error from server: {}".format(rmodule_data['error'])
                 for module_name in rmodule_data['result']:
-                    self.modules[module_name] = RemoteModule(self, self._get_url(), self._r, module_name, rmodule_data['result'][module_name])
+                    self.modules[module_name] = RemoteModule(self, self._get_url(), self._r, module_name, rmodule_data['result'][module_name], self._https_ignore)
             except self._r.exceptions.SSLError:
                 return "Could not connect to {}:{} via HTTPS".format(self.ip, self._port)
             except self._r.exceptions.ConnectionError:
