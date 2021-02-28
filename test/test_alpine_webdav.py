@@ -33,10 +33,12 @@ class TestWebdav(unittest.TestCase, ModuleTestBase):
     def stop_server(self, server_id):
         error, _ = self.mm['webdavalpine'].run("stop_server", id=server_id)
         self.assertTrue(error == None, msg=error)
+        time.sleep(5)
 
     def create_server(self):
         error, server_id = self.mm['webdavalpine'].run("add_server", ip_addr=self.server_1_ip, fqdn='webdav.test')
         self.assertTrue(error == None, msg=error)
+        time.sleep(5)
         return server_id
 
     def remove_server(self, server_id):

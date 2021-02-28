@@ -1,0 +1,13 @@
+test_network_reservation
+test_dns
+test_nethop
+test_lxd
+test_simplemail
+test_inspircd
+test_bepasty
+test_alpine_webdav
+test_tinyproxy
+#test_mattermost
+test_easyzone
+test_minica
+test_external

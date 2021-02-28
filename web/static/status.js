@@ -82,12 +82,10 @@ function update_server_list() {
                         }
                     }
                     document.getElementById('system_list').appendChild(new_system);
-
-
-
                 } else {
                     if (KNOWN_SYSTEMS[id][4] != row[4]) {
                         document.getElementById(id + "-status").innerHTML = row[4];
+                        KNOWN_SYSTEMS[id][4] = row[4];
                     }
                     KNOWN_SYSTEMS[id][5] = true;
                 }

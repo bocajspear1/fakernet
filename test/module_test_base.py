@@ -40,7 +40,6 @@ class ModuleTestBase():
     def test_basic_functionality(self):
         server_id = self.create_server()
         data = self.mm[self.module_name].get_list()
-        print(data)
         found = False
         for item in data:
             self.assertTrue(item[0] == self.module_name)

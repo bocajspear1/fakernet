@@ -7,6 +7,7 @@ import dns.resolver
 import time
 
 from constants import *
+from module_test_base import ModuleTestBase
 
 parentdir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(parentdir)
@@ -19,12 +20,31 @@ import smtplib
 import imaplib
 import requests
 
-class TestBepasty(unittest.TestCase):
+class TestBepasty(ModuleTestBase, unittest.TestCase):
 
     def setUp(self):
-        self.mm = ModuleManager()
-        self.mm.load()
-        self.mm['simplemail'].check()
+        self.module_name = 'pastebin-bepasty'
+        self.load_mm()
+        self.server_1_ip = '172.16.3.130'
+
+    def stop_server(self, server_id):
+        error, _ = self.mm[self.module_name].run("stop_server", id=server_id)
+        self.assertTrue(error == None, msg=error)
+        time.sleep(5)
+
+    def create_server(self):
+        error, server_id = self.mm[self.module_name].run("add_server", ip_addr=self.server_1_ip, fqdn='pastebin.test')
+        self.assertTrue(error == None, msg=error)
+        time.sleep(12)
+        return server_id
+
+    def remove_server(self, server_id):
+        error, _ = self.mm[self.module_name].run("remove_server", id=server_id)
+        self.assertTrue(error == None, msg=error)
+
+    def do_test_basic_functionality(self, server_id):
+        resp = requests.get("https://{}/".format(self.server_1_ip), verify=False)
+        self.assertTrue(resp.status_code == 200)
 
     def test_bepasty(self):
         server_1_ip = '172.16.3.130'

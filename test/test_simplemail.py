@@ -7,6 +7,7 @@ import dns.resolver
 import time
 
 from constants import *
+from module_test_base import ModuleTestBase
 
 parentdir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(parentdir)
@@ -19,16 +20,52 @@ import smtplib
 import imaplib
 import requests
 
-class TestSimpleMail(unittest.TestCase):
+class TestSimpleMail(ModuleTestBase, unittest.TestCase):
 
     def setUp(self):
-        self.mm = ModuleManager()
-        self.mm.load()
-        self.mm['simplemail'].check()
+        self.module_name = 'simplemail'
+        self.load_mm()
+        self.server_1_ip = '172.16.3.170'
+        self.username_1 = "testme@mail1.test"
+        self.password_1 = "testtest"
+
+    def stop_server(self, server_id):
+        error, _ = self.mm[self.module_name].run("stop_server", id=server_id)
+        self.assertTrue(error == None, msg=error)
+        time.sleep(5)
+
+    def create_server(self):
+        error, server_id = self.mm[self.module_name].run("add_server", ip_addr=self.server_1_ip, fqdn='mail1.test', mail_domain='mail1.test')
+        self.assertTrue(error == None, msg=error)
+        time.sleep(25)
+
+        resp = requests.post("https://"+self.server_1_ip+"/newaccount.php", data={
+            "username": self.username_1,
+            "password": self.password_1
+        }, verify=False)
+        self.assertTrue(resp.status_code == 200)
+
+        return server_id
+
+    def do_test_basic_functionality(self, server_id):
+        time.sleep(15)
+        smtp_sender = smtplib.SMTP(self.server_1_ip)
+        smtp_sender.starttls()
+        smtp_sender.login(user=self.username_1, password=self.password_1)
+        smtp_sender.close()
+
+        imap = imaplib.IMAP4_SSL(self.server_1_ip)
+        imap.login(self.username_1, self.password_1)
+        imap.select('Inbox')
+        imap.close()
+
+
+    def remove_server(self, server_id):
+        error, _ = self.mm[self.module_name].run("remove_server", id=server_id)
+        self.assertTrue(error == None, msg=error)
 
     def test_simplemail(self):
-        server_1_ip = '172.16.3.170'
-        error, server_1_id = self.mm['simplemail'].run("add_server", ip_addr=server_1_ip, fqdn='mail1.test', mail_domain='mail1.test')
+        error, server_1_id = self.mm[self.module_name].run("add_server", ip_addr=self.server_1_ip, fqdn='mail1.test', mail_domain='mail1.test')
         self.assertTrue(error == None, msg=error)
 
         time.sleep(12)
@@ -36,7 +73,7 @@ class TestSimpleMail(unittest.TestCase):
         username1 = "test1@mail1.test"
         password = "testtest"
 
-        resp = requests.post("https://"+server_1_ip+"/newaccount.php", data={
+        resp = requests.post("https://"+self.server_1_ip+"/newaccount.php", data={
             "username": username1,
             "password": password
         }, verify=False)
@@ -44,14 +81,14 @@ class TestSimpleMail(unittest.TestCase):
 
         username2 = "test2@mail1.test"
 
-        resp = requests.post("https://"+server_1_ip+"/newaccount.php", data={
+        resp = requests.post("https://"+self.server_1_ip+"/newaccount.php", data={
             "username": username2,
             "password": password
         }, verify=False)
         self.assertTrue(resp.status_code == 200)
 
 
-        smtp_sender = smtplib.SMTP(server_1_ip)
+        smtp_sender = smtplib.SMTP(self.server_1_ip)
 
         # Check for unauthenticated SMTP
         try:
@@ -73,7 +110,7 @@ class TestSimpleMail(unittest.TestCase):
 
         time.sleep(30)
         # connect to host using SSL
-        imap = imaplib.IMAP4_SSL(server_1_ip)
+        imap = imaplib.IMAP4_SSL(self.server_1_ip)
 
         ## login to server
         imap.login(username2, password)
@@ -88,3 +125,6 @@ class TestSimpleMail(unittest.TestCase):
             self.assertTrue(data is not None)
 
         imap.close()
+        smtp_sender.close()
+        error, _ = self.mm['simplemail'].run("remove_server", id=server_1_id)
+        self.assertTrue(error == None, msg=error)
