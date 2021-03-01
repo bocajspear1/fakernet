@@ -114,7 +114,10 @@ class DockerBaseModule(BaseModule):
     mm = Holder()
 
     def ovs_set_ip(self, container, bridge, interface, ip_addr, gateway):
-        subprocess.check_output(["/usr/bin/sudo", "/usr/bin/ovs-docker", "add-port", bridge, interface, container, "--ipaddress={}".format(ip_addr), "--gateway={}".format(gateway)])
+        if gateway is not None:
+            subprocess.check_output(["/usr/bin/sudo", "/usr/bin/ovs-docker", "add-port", bridge, interface, container, "--ipaddress={}".format(ip_addr), "--gateway={}".format(gateway)])
+        else:
+            subprocess.check_output(["/usr/bin/sudo", "/usr/bin/ovs-docker", "add-port", bridge, interface, container, "--ipaddress={}".format(ip_addr)])
         return None, True
 
     def ovs_remove_ports(self, container, bridge):
@@ -278,6 +281,27 @@ class LXDBaseModule(BaseModule):
             if err is not None:
                 return err, None
 
+        return None, True
+
+    def lxd_stop(self, container_name):
+        _, status = self.lxd_get_status(container_name)
+        if status[1].lower() == "stopped":
+            return "Container is already stopped", None
+
+        try:
+            container = self.mm.lxd.containers.get(container_name)
+            container.stop()
+        except pylxd.exceptions.LXDAPIException as e:
+            return str(e), None
+
+        return None, True
+
+    def lxd_delete(self, container_name):
+        try:
+            container = self.mm.lxd.containers.get(container_name)
+            container.delete()
+        except pylxd.exceptions.LXDAPIException as e:
+            return str(e), None
         return None, True
 
     def lxd_build_image(self, image_name, template, switch, commands):

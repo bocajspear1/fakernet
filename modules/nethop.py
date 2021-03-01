@@ -9,8 +9,8 @@ import lib.validate as validate
 
 INSTANCE_TEMPLATE = "nethop-{}"
 PULL_SERVER = "https://images.linuxcontainers.org"
-TEMPLATE_NAME = "hop_alpine_310"
-PRETEMPLATE_NAME = "alpine_310"
+TEMPLATE_NAME = "hop_alpine_313"
+PRETEMPLATE_NAME = "alpine_313"
 
 class NetReservation(LXDBaseModule):
 
@@ -112,8 +112,6 @@ class NetReservation(LXDBaseModule):
             hop_id = dbc.lastrowid
             container_name = INSTANCE_TEMPLATE.format(hop_id)
 
-            
-
             # Create the hop container
             try:
                 container = self.mm.lxd.containers.create({
@@ -190,21 +188,12 @@ class NetReservation(LXDBaseModule):
 
             # Deallocate our IP address
             error, _ = self.mm['ipreserve'].run("remove_ip", ip_addr=front_ip)
-            # if error is not None:
-            #     return error, None
 
             # Remove the host from the DNS server
             err, _ = self.mm['dns'].run("remove_host", fqdn=fqdn, ip_addr=front_ip)
-            # if err is not None:
-            #     return err, None
 
             # Delete the hop container itself
-            try:
-                container = self.mm.lxd.containers.get(container_name)
-                container.stop()
-                container.delete()
-            except pylxd.exceptions.LXDAPIException as e:
-                return str(e), None
+            err, _ = self.lxd_delete(container_name)
 
             time.sleep(2)
 
@@ -239,6 +228,7 @@ class NetReservation(LXDBaseModule):
             if serror is not None:
                 return serror, None
 
+            # Add second switch interface
             err, network_data = self.mm['netreserve'].run("get_network_by_switch", switch=switch_name)
             if err is not None:
                 return err, None
@@ -251,24 +241,14 @@ class NetReservation(LXDBaseModule):
 
             return None, True
         elif func == "stop_hop":
-            perror, _ = self.validate_params(self.__FUNCS__['stop_container'], kwargs)
+            perror, _ = self.validate_params(self.__FUNCS__['stop_hop'], kwargs)
             if perror is not None:
                 return perror, None
 
+            hop_id = kwargs['id']
             container_name = INSTANCE_TEMPLATE.format(hop_id)
 
-            _, status = self.lxd_get_status(container_name)
-            if status[1].lower() == "stopped":
-                return "Container is already stopped", None
-
-            try:
-                container = self.mm.lxd.containers.get(container_name)
-                container.stop()
-            except pylxd.exceptions.LXDAPIException as e:
-                return str(e), None
-
-            return None, True
-
+            return self.lxd_stop(container_name)
         else:
             return "Invalid function '{}.{}'".format(self.__SHORTNAME__, func), None
 
@@ -284,7 +264,7 @@ class NetReservation(LXDBaseModule):
 
         self.print("Pulling down LXC image for hop...")
         
-        remote_name = "alpine/3.10"
+        remote_name = "alpine/3.13"
 
         try:
             self.mm.lxd.images.get_by_alias(PRETEMPLATE_NAME)
@@ -317,7 +297,9 @@ class NetReservation(LXDBaseModule):
             "echo '' >> /etc/network/interfaces",
             "echo 'auto eth1' >> /etc/network/interfaces",
             "echo 'iface eth1 inet manual' >> /etc/network/interfaces",
-            "echo 'PermitRootLogin yes' >> /etc/ssh/sshd_config"
+            "echo 'PermitRootLogin yes' >> /etc/ssh/sshd_config",
+            "rc-update add zebra",
+            "rc-update add ripd"
         ]
 
         ok = self.lxd_build_image(TEMPLATE_NAME, PRETEMPLATE_NAME, BUILD_SWITCH, hop_commands)

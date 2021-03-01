@@ -245,15 +245,7 @@ class LXDManager(LXDBaseModule):
             dbc.execute("DELETE FROM lxd_container WHERE lxd_id=?", (lxd_id,))
             self.mm.db.commit()
 
-            try:
-                container = self.mm.lxd.containers.get(container_name)
-                container.delete()
-            except pylxd.exceptions.LXDAPIException as e:
-                return str(e), None
-
-            
-            
-            return None, True
+            return self.lxd_delete(container_name)
         elif func == "start_container":
             perror, _ = self.validate_params(self.__FUNCS__['start_container'], kwargs)
             if perror is not None:
@@ -273,8 +265,6 @@ class LXDManager(LXDBaseModule):
             container_name = fqdn.replace(".", "-")
 
             return self.lxd_start(container_name, ip_addr)
-
-            
         elif func == "stop_container":
             perror, _ = self.validate_params(self.__FUNCS__['stop_container'], kwargs)
             if perror is not None:
@@ -293,18 +283,7 @@ class LXDManager(LXDBaseModule):
 
             container_name = fqdn.replace(".", "-")
 
-
-            _, status = self.lxd_get_status(container_name)
-            if status[1].lower() == "stopped":
-                return "Container is already stopped", None
-
-            try:
-                container = self.mm.lxd.containers.get(container_name)
-                container.stop()
-            except pylxd.exceptions.LXDAPIException as e:
-                return str(e), None
-
-            return None, True
+            return self.lxd_stop(container_name)
         else:
             return "Invalid function '{}.{}'".format(self.__SHORTNAME__, func), None
 

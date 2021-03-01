@@ -157,6 +157,11 @@ class NetReservation(BaseModule):
                         subprocess.check_output(["/usr/bin/sudo", "/usr/bin/ovs-vsctl", "add-br", switch])
                     except:
                         return "Failed to create OVS bridge", None
+                
+                try:
+                    subprocess.check_output(["/usr/bin/sudo", "/sbin/ip", 'link', 'set', switch, 'up'])
+                except subprocess.CalledProcessError:
+                    return "Failed to set hop switch to up", None
 
                 return None, True
             else:
