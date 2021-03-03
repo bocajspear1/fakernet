@@ -1,1 +1,0 @@
-This module uses the tinyproxy application to provide HTTP proxying capabilities. This could be used for relay internally or, with the proper iptables rules, provide external internet access to select systems in the environment. 

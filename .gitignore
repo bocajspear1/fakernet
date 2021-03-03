@@ -1,11 +1,11 @@
-venv/*
-.vscode/*
-testing/*
+venv
+.vscode
+testing
 fakernet.db
-work/*
+work
 !work/.gitkeep
 **/__pycache__/*
-docs/out/*
+docs/build
 saves/*
 logs/*.log
 history.json

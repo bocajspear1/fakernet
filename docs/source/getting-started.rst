@@ -1,23 +1,20 @@
-# Getting Started
+Getting Started 
+================
 
-## Network Design
+Network Design
+--------------
 
-For designing your network to work with FakerNet please reference the [Network Design](network-design.html) page.
+FakerNet will need a little planning for you to be able to access the services and servers built by FakerNet. This will depend on what you need and what real internet access you might need. Refer to :ref:`network-design` for more details.
 
-## Installing
+Installing
+-----------
 
-Currently, Fakernet has been tested with Ubuntu 18.04. An installation script is available to speed things up. Run the script in ```scripts/install_ubuntu.sh``` for a quick install.
+See :ref:`installation`.
 
-If you want to do a manual install, please reference the project's README.
+..  note::
+    Be sure you have built the Docker and LXD images before you continue!
 
-## Post Installation
 
-### Build Images
-
-After everything is install, you'll need to build the FakerNet Docker images and pull in LXD images (This will take awhile):
-```
-python3 build.py
-```
 
 ### iptables
 

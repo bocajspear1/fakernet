@@ -6,9 +6,9 @@ docker
 pylxd
 tableprint
 jinja2
-markdown
 animation
 gunicorn
 webdavclient3
 Flask-HTTPAuth
 psutil
+sphinx==3.5.1

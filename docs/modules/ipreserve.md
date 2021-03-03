@@ -1,1 +1,0 @@
-This module manages IP reservations in the defined networks. A network must be defined in `netreserve` that contains the IP for a reservation.
