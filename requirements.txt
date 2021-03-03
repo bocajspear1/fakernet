@@ -12,3 +12,4 @@ webdavclient3
 Flask-HTTPAuth
 psutil
 sphinx==3.5.1
+sphinx-rtd-theme
