@@ -1,0 +1,6 @@
+.. _module-init:
+
+init
+====
+
+    
