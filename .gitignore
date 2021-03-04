@@ -6,7 +6,6 @@ work
 !work/.gitkeep
 **/__pycache__/*
 docs/build
-docs/source/modules/*
 saves/*
 logs/*.log
 history.json
