@@ -1,0 +1,7 @@
+This module creates a Apache-based WebDAV server on an Alpine Linux instance. Public files are accessed at ``<SERVER>/files/public`` while other paths require credentials. A ``admin`` user is created on build and their password is located in the ``webdav`` subdirectory in the server's working directory. For example, with server with an ID of 1: ``work/webdavalpine/1/webdav/admin.pass``
+
+References
+""""""""""
+
+* `Apache WebDAV Configuration <https://www.codeotaku.com/journal/2009-04/apache-webdav-configuration/index>`_
+* `configure apache/webdav readonly for user x, read/write for user y <https://serverfault.com/questions/294386/configure-apache-webdav-readonly-for-user-x-read-write-for-user-y>`_

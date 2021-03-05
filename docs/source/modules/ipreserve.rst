@@ -4,6 +4,10 @@ ipreserve
 =========
 
     
+This module manages IP reservations in the defined networks, ensuring that IPs selected do not overlap. 
+
+A network must be defined in ``netreserve`` that contains the IP for a reservation. Otherwise, an error will be returned.
+
 list_ips
 ^^^^^^^^
 

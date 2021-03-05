@@ -8,7 +8,6 @@ tableprint
 jinja2
 animation
 gunicorn
-webdavclient3
 Flask-HTTPAuth
 psutil
 sphinx==3.5.1

@@ -72,7 +72,7 @@ class RemoteModule():
 
 class ModuleManager():
 
-    def __init__(self, ip=None, db=None, https=False, https_ignore=False, logging=True):
+    def __init__(self, ip=None, db=None, https=False, https_ignore=False):
 
         self._user = ""
         
@@ -96,10 +96,8 @@ class ModuleManager():
             self._https = False
             self._port = 0
             self._https_ignore = https_ignore
-            if logging:
-                self.history_writer = HistoryWriter()
-            else:
-                self.history_writer = None
+            self.history_writer = HistoryWriter()
+            
             self.depth = 0
         else:
             import requests
@@ -118,18 +116,18 @@ class ModuleManager():
             self._r = requests
             self.history_writer = None
 
-        if logging:
-            self._logger = logging.getLogger("fakernet")
-            fileLog = logging.FileHandler("./logs/fakernet.log")
-            formatter = logging.Formatter('%(asctime)s %(levelname)s USER=%(user)s : %(message)s')
-            fileLog.setFormatter(formatter)
-            self._logger.setLevel(logging.INFO)
-            self._logger.handlers = []
-            self._logger.addHandler(fileLog)
+        
+        self._logger = logging.getLogger("fakernet")
+        fileLog = logging.FileHandler("./logs/fakernet.log")
+        formatter = logging.Formatter('%(asctime)s %(levelname)s USER=%(user)s : %(message)s')
+        fileLog.setFormatter(formatter)
+        self._logger.setLevel(logging.INFO)
+        self._logger.handlers = []
+        self._logger.addHandler(fileLog)
 
-            self.logger = logging.LoggerAdapter(self._logger, {
-                "user": self._user
-            })
+        self.logger = logging.LoggerAdapter(self._logger, {
+            "user": self._user
+        })
 
 
     def _get_url(self):

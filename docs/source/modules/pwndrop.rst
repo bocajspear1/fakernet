@@ -4,6 +4,10 @@ pwndrop
 =======
 
     
+A file-hosting application oriented to delivering attack payloads.
+
+Made by Kuba Gretzky and on `GitHub <https://github.com/kgretzky/pwndrop>`_.
+
 list
 ^^^^
 

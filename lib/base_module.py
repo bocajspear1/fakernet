@@ -55,40 +55,7 @@ class BaseModule():
             new_list.append(new_data)
         return new_list
 
-    def _save_add_data(self, server_ids, instance_template):
-        save_data = []
-        for server in server_ids:
-            server_id = server[0]
-            error, status = self.docker_status(instance_template.format(server_id))
             
-            if status[0] == 'yes':
-                if error is None and status[1] == "running":
-                    save_data.append([server_id, "running"])
-                else:
-                    save_data.append([server_id, "stopped"])
-        return save_data
-
-    def _restore_server(self, container_name, server_ip, new_status):
-
-        error, status = self.docker_status(container_name)
-        if error is not None:
-            return error, None
-        if new_status == "running" and status[1] == "running":
-            print("Server {} already running".format(container_name))
-        elif new_status == "running":
-            print("Restoring {}".format(container_name))
-            error, _ = self.docker_start(container_name, server_ip)
-            if error is not None:
-                print("Got error: {}".format(error))
-        elif new_status == "stopped" and status[1] == "running":
-            print("Stopping {}".format(container_name))
-            error, _ = self.docker_stop(container_name, server_ip)
-            if error is not None:
-                print("Got error: {}".format(error))
-    
-        return None, True
-            
-
     # Help setup functions
     def check_working_dir(self):
         if not os.path.exists("./work/" + self.__SHORTNAME__):
@@ -226,6 +193,40 @@ class DockerBaseModule(BaseModule):
 
         return None, True
 
+    def _restore_server(self, container_name, server_ip, new_status):
+
+        error, status = self.docker_status(container_name)
+        if error is not None:
+            return error, None
+        if new_status == "running" and status[1] == "running":
+            print("Server {} already running".format(container_name))
+        elif new_status == "running":
+            print("Restoring {}".format(container_name))
+            error, _ = self.docker_start(container_name, server_ip)
+            if error is not None:
+                print("Got error: {}".format(error))
+        elif new_status == "stopped" and status[1] == "running":
+            print("Stopping {}".format(container_name))
+            error, _ = self.docker_stop(container_name, server_ip)
+            if error is not None:
+                print("Got error: {}".format(error))
+    
+        return None, True
+
+    def _save_add_data(self, server_ids, instance_template):
+        save_data = []
+        for server in server_ids:
+            server_id = server[0]
+            error, status = self.docker_status(instance_template.format(server_id))
+            
+            if status[0] == 'yes':
+                if error is None and status[1] == "running":
+                    save_data.append([server_id, "running"])
+                else:
+                    save_data.append([server_id, "stopped"])
+        return save_data
+
+
 class LXDBaseModule(BaseModule):
     class Holder():
         
@@ -269,17 +270,19 @@ class LXDBaseModule(BaseModule):
 
         err, _ = self.lxd_execute(container_name, "ip addr add {}/{} dev eth0".format(server_ip, mask))
         if err is not None:
-            return err, None
+            return "Setting IP: " + err, None
 
         err, _ = self.lxd_execute(container_name, "ip route add default via {}".format(gateway))
         if err is not None:
-            return err, None
+            return "Adding route: " + err, None
 
         error, server_data = self.mm['dns'].run("get_server", id=1)
         if error is None:
             err, _ = self.lxd_execute(container_name, "echo 'nameserver {}' > /etc/resolv.conf".format(server_data['server_ip']))
             if err is not None:
-                return err, None
+                return "Setting DNS nameserver: " + err, None
+        else:
+            return "Could not find nameserver in FakerNet:" + error, None
 
         return None, True
 
@@ -359,3 +362,37 @@ class LXDBaseModule(BaseModule):
             return None, ("yes", status.lower())
         except pylxd.exceptions.LXDAPIException as e:
             return e, ("no", "unknown")
+
+    def _restore_server(self, container_name, server_ip, new_status):
+
+        error, status = self.lxd_get_status(container_name)
+        if error is not None:
+            return error, None
+        if new_status == "running" and status[1] == "running":
+            print("Server {} already running".format(container_name))
+        elif new_status == "running":
+            print("Restoring {}".format(container_name))
+            error, _ = self.lxd_start(container_name, server_ip)
+            if error is not None:
+                print("Got error: {}".format(error))
+        elif new_status == "stopped" and status[1] == "running":
+            print("Stopping {}".format(container_name))
+            error, _ = self.lxd_stop(container_name)
+            if error is not None:
+                print("Got error: {}".format(error))
+    
+        return None, True
+
+    def _save_add_data(self, server_ids):
+        save_data = []
+        for server in server_ids:
+            server_id = server[0]
+            container_name = server[1]
+            error, status = self.lxd_get_status(container_name)
+            
+            if status[0] == 'yes':
+                if error is None and status[1] == "running":
+                    save_data.append([server_id, "running"])
+                else:
+                    save_data.append([server_id, "stopped"])
+        return save_data

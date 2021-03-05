@@ -15,6 +15,7 @@ The following is the currently available FakerNet modules.
     modules/external
     modules/simplemail
     modules/lxd
+    modules/pwndrop
     modules/minica
     modules/tinyproxy
     modules/mattermost

@@ -24,11 +24,12 @@ for module in module_list:
 
     \n""".format(shortname, shortname, "="*len(shortname))
 
-    long_desc_path = "./docs/source/_mod_long/{}.rst".format(shortname)
+    long_desc_path = "./docs/source/_mod_long/{}.txt".format(shortname)
     if os.path.exists(long_desc_path):
         long_desc_file = open(long_desc_path, "r")
         output_page += long_desc_file.read()
         long_desc_file.close()
+        output_page += "\n\n"
     
     functions = {}
 

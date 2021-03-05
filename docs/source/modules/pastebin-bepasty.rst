@@ -4,6 +4,10 @@ pastebin-bepasty
 ================
 
     
+Creates a Pastebin-clone using the Python-based Bepasty.
+
+Available on `GitHub <https://github.com/bepasty/bepasty-server>`_, documentation `here <https://bepasty-server.readthedocs.io/en/latest/>`_.
+
 list
 ^^^^
 

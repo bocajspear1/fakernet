@@ -22,7 +22,7 @@ class NetReservation(LXDBaseModule):
             "_desc": "View network hops"
         },
         "add_network_hop": {
-            "_desc": "Get network reservation info",
+            "_desc": "Add a network hop",
             "front_ip": "IP",
             "fqdn": "TEXT",
             "net_addr": "IP_NETWORK",
@@ -34,11 +34,11 @@ class NetReservation(LXDBaseModule):
             'id': "INTEGER"
         },
         "start_hop": {
-            "_desc": "",
+            "_desc": "Start a hop router between networks",
             'id': "INTEGER"
         },
         "stop_hop": {
-            "_desc": "",
+            "_desc": "Stop a hop router between networks. Will cut off communications.",
             'id': "INTEGER"
         },
     } 

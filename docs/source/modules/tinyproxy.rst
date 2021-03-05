@@ -4,6 +4,10 @@ tinyproxy
 =========
 
     
+This module uses the tinyproxy application to provide HTTP proxying capabilities. This could be used for relay internally or, with the proper iptables rules, provide external internet access to select systems in the environment. 
+
+If you allow FakerNet services internet access while blocking certain internal networks, tinyproxy could be used for systems to temporarily gain at least web-based internet access by pointing to the proxy.
+
 list
 ^^^^
 

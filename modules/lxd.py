@@ -164,6 +164,9 @@ class LXDManager(LXDBaseModule):
 
             lxd_id = dbc.lastrowid
 
+            if template not in BUILD_BASE_IMAGES and template not in BUILD_SPECIALIZED_IMAGES:
+                return "Unsupported template", None
+
             # Allocate our IP address
             error, _ = self.mm['ipreserve'].run("add_ip", ip_addr=ip_addr, description="LXD - {}".format(fqdn))
             if error is not None:
@@ -174,9 +177,6 @@ class LXDManager(LXDBaseModule):
                 return error, None 
 
             container_name = fqdn.replace(".", "-")
-
-            if template not in BUILD_BASE_IMAGES and template not in BUILD_SPECIALIZED_IMAGES:
-                return "Unsupported template", None
 
             error, switch = self.mm['netreserve'].run("get_ip_switch", ip_addr=ip_addr)
             if error:
@@ -205,7 +205,6 @@ class LXDManager(LXDBaseModule):
             if error != None:
                 return error, None
 
-            time.sleep(5)
             serror, _ =  self.lxd_execute(container_name, "echo root:{} | chpasswd".format(password))
             if serror is not None:
                 return serror, None
@@ -360,5 +359,25 @@ class LXDManager(LXDBaseModule):
             new_data += [status[1]]
             new_list.append(new_data)
         return new_list
+
+    def save(self):
+        dbc = self.mm.db.cursor()
+        dbc.execute("SELECT lxd_id, fqdn FROM lxd_container;")
+        results = dbc.fetchall()
+
+        new_results = []
+        for result in results:
+            new_results.append((result[0], result[1].replace(".", "-")))
+
+        return self._save_add_data(new_results)
+
+    def restore(self, restore_data):
+        dbc = self.mm.db.cursor()
+        
+        for server_data in restore_data:
+            dbc.execute("SELECT ip_addr, fqdn FROM lxd_container WHERE lxd_id=?", (server_data[0],))
+            results = dbc.fetchone()
+            if results:
+                self._restore_server(results[1].replace(".", "-"), results[0], server_data[1])
 
 __MODULE__ = LXDManager
