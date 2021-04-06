@@ -74,7 +74,47 @@ class TestLXD(ModuleTestBase, unittest.TestCase):
         password = 'testtest'
 
         self.assertTrue(self.can_ssh_to_system(self.server_1_ip, username, password), msg="Could not SSH correctly to {} with creds {}:{}".format(self.server_1_ip, username, password))
+    
+    def test_templates(self):
+        find_template = 'ubuntu_1804_base'
+        error, template_list = self.mm['lxd'].run("list_templates")
+        self.assertTrue(error == None, msg=error)
+        self.assertTrue(len(template_list['rows']) > 0, msg="list is empty")
+        self.assertTrue(len(template_list['rows'][0]) == 3, msg="rows[0] is not 3 long")
+        self.assertTrue(len(template_list['columns']) == 3, msg="columns is not 3 long")
+
+        found = False
+        for item in template_list['rows']:
+            if item[2] == find_template:
+                found = True
         
+        self.assertTrue(found)
+
+        error, template_list = self.mm['lxd'].run("remove_template", id=1)
+        self.assertTrue(error == None, msg=error)
+
+        error, template_list = self.mm['lxd'].run("list_templates")
+        self.assertTrue(error == None, msg=error)
+        found = False
+        for item in template_list['rows']:
+            if item[2] == find_template:
+                found = True
+        
+        self.assertFalse(found)
+
+        error, template_list = self.mm['lxd'].run("add_template", template_name=find_template, image_name=find_template)
+        self.assertTrue(error == None, msg=error)
+
+        error, template_list = self.mm['lxd'].run("list_templates")
+        self.assertTrue(error == None, msg=error)
+        found = False
+        for item in template_list['rows']:
+            if item[2] == find_template:
+                found = True
+
+        self.assertTrue(found)
+
+
     def test_add_two_containers(self):
         error, cont_id = self.mm['lxd'].run("add_container", ip_addr=self.server_1_ip, fqdn=self.domain_1_name, template='ubuntu_1804_base', password='testtest')
         self.assertTrue(error == None, msg=error)

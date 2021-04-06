@@ -9,9 +9,10 @@ import pylxd
 PULL_SERVER = "https://images.linuxcontainers.org"
 PULL_IMAGES = {
     "ubuntu_1804": "ubuntu/18.04",
-    "ubuntu_1604": "ubuntu/16.04",
+    "ubuntu_2004": "ubuntu/20.04",
     "centos7": "centos/7",
-    "alpine_310": "alpine/3.10"
+    "alpine_313": "alpine/3.13",
+    "kali": "kali"
 }
 
 BUILD_BASE_IMAGES = {
@@ -25,8 +26,8 @@ BUILD_BASE_IMAGES = {
             "service ssh restart",
         ]
     },
-    "ubuntu_1604_base": {
-        "template": "ubuntu_1604",
+    "ubuntu_2004_base": {
+        "template": "ubuntu_2004",
         "commands": [
             "apt-get update",
             "apt-get -y dist-upgrade",
@@ -44,7 +45,17 @@ BUILD_BASE_IMAGES = {
             "echo 'PermitRootLogin yes' >> /etc/ssh/sshd_config",
             "systemctl restart sshd",
         ]
-    }
+    },
+    "kali_base": {
+        "template": "kali",
+        "commands": [
+            "apt-get update",
+            "apt-get -y dist-upgrade",
+            "apt-get -y install openssh-server tmux",
+            "echo 'PermitRootLogin yes' >> /etc/ssh/sshd_config",
+            "service ssh restart",
+        ]
+    },
 }
 
 BUILD_SPECIALIZED_IMAGES = {
@@ -54,8 +65,8 @@ BUILD_SPECIALIZED_IMAGES = {
             "apt-get -y install apache2 mysql-server libapache2-mod-php"
         ]
     },
-    "ubuntu_1604_lamp": {
-        "template": "ubuntu_1804_base",
+    "ubuntu_2004_lamp": {
+        "template": "ubuntu_2004_base",
         "commands": [
             "apt-get -y install apache2 mysql-server libapache2-mod-php"
         ]
@@ -103,7 +114,16 @@ class LXDManager(LXDBaseModule):
             'id': "INTEGER"
         },
         "list_templates": {
-            "_desc": ""
+            "_desc": "List available LXD templates"
+        },
+        "add_template": {
+            "_desc": "Add template by image name",
+            "image_name": "TEXT",
+            "template_name": "TEXT"
+        },
+        "remove_template": {
+            "_desc": "Remove template by ID",
+            'id': "INTEGER"
         }
         
     } 
@@ -132,16 +152,12 @@ class LXDManager(LXDBaseModule):
                 "columns": ['ID', "container_fqdn", "ip_addr", 'template', 'built', 'status']
             } 
         elif func == "list_templates":
-            template_list = []
+            dbc.execute("SELECT * FROM lxd_templates;") 
+            results = dbc.fetchall()
 
-            for item in BUILD_SPECIALIZED_IMAGES:
-                template_list.append([item])
-
-            for item in BUILD_BASE_IMAGES:
-                template_list.append([item])
             return None, {
-                "rows": template_list,
-                "columns": ["template"]
+                "rows": results,
+                "columns": ["template_id", "template_name", "image_name"]
             }
         elif func == "add_container":
             perror, _ = self.validate_params(self.__FUNCS__['add_container'], kwargs)
@@ -151,21 +167,24 @@ class LXDManager(LXDBaseModule):
 
             fqdn = kwargs['fqdn']
             ip_addr = kwargs['ip_addr']
-            template = kwargs['template']
+            template_name = kwargs['template']
             password = kwargs['password']
+
+            dbc.execute("SELECT image_name FROM lxd_templates WHERE template_name=?", (template_name,))
+            result = dbc.fetchone()
+            if not result:
+                return "Template not found", None
+            image_name = result[0]
 
             dbc.execute('SELECT * FROM lxd_container WHERE ip_addr=? OR fqdn=?', (ip_addr, fqdn))
             result = dbc.fetchone()
             if result:
                 return "A container of that name or IP already exists", None
 
-            dbc.execute('INSERT INTO lxd_container (fqdn, ip_addr, template) VALUES (?, ?, ?)', (fqdn, ip_addr, template))
+            dbc.execute('INSERT INTO lxd_container (fqdn, ip_addr, template) VALUES (?, ?, ?)', (fqdn, ip_addr, template_name))
             self.mm.db.commit()
 
             lxd_id = dbc.lastrowid
-
-            if template not in BUILD_BASE_IMAGES and template not in BUILD_SPECIALIZED_IMAGES:
-                return "Unsupported template", None
 
             # Allocate our IP address
             error, _ = self.mm['ipreserve'].run("add_ip", ip_addr=ip_addr, description="LXD - {}".format(fqdn))
@@ -179,13 +198,13 @@ class LXDManager(LXDBaseModule):
             container_name = fqdn.replace(".", "-")
 
             error, switch = self.mm['netreserve'].run("get_ip_switch", ip_addr=ip_addr)
-            if error:
+            if error is not None:
                 return error, None
 
             try:
                 container = self.mm.lxd.containers.create({
                     'name': container_name, 
-                    'source': {'type': 'image', 'alias': template},
+                    'source': {'type': 'image', 'alias': image_name},
                     'config': {
 
                     },
@@ -283,6 +302,46 @@ class LXDManager(LXDBaseModule):
             container_name = fqdn.replace(".", "-")
 
             return self.lxd_stop(container_name)
+        elif func == "add_template":
+            perror, _ = self.validate_params(self.__FUNCS__['add_template'], kwargs)
+            if perror is not None:
+                return perror, None
+
+
+            image_name = kwargs['image_name']
+            template_name = kwargs['template_name']
+
+            dbc.execute("SELECT * FROM lxd_templates WHERE template_name=?", (template_name,))
+            result = dbc.fetchone()
+            if result:
+                return "A template of that name already exist", None
+
+            try:
+                result = self.mm.lxd.images.get_by_alias(image_name)
+            except pylxd.exceptions.NotFound:
+                return "The image provided does not exist", None
+
+            dbc.execute('INSERT INTO lxd_templates (template_name, image_name) VALUES (?, ?)', (template_name, image_name))
+            self.mm.db.commit()
+
+            return None, True
+        elif func == "remove_template":
+            perror, _ = self.validate_params(self.__FUNCS__['remove_template'], kwargs)
+            if perror is not None:
+                return perror, None
+
+            template_id = kwargs['id']
+
+            dbc.execute("SELECT * FROM lxd_templates WHERE template_id=?", (template_id,))
+            result = dbc.fetchone()
+            if not result:
+                return "Template does not exist", None
+
+            # Remove from database
+            dbc.execute("DELETE FROM lxd_templates WHERE template_id=?", (template_id,))
+            self.mm.db.commit()
+            
+            return None, True
         else:
             return "Invalid function '{}.{}'".format(self.__SHORTNAME__, func), None
 
@@ -293,6 +352,20 @@ class LXDManager(LXDBaseModule):
         if dbc.fetchone() is None:
             dbc.execute("CREATE TABLE lxd_container (lxd_id INTEGER PRIMARY KEY, fqdn TEXT, ip_addr TEXT, template TEXT);")
             self.mm.db.commit()
+
+        dbc.execute("SELECT * FROM sqlite_master WHERE type='table' AND name='lxd_templates';")
+        if dbc.fetchone() is None:
+            dbc.execute("CREATE TABLE lxd_templates (template_id INTEGER PRIMARY KEY, template_name TEXT, image_name TEXT);")
+            self.mm.db.commit()
+
+            for base_template in BUILD_BASE_IMAGES:
+                dbc.execute('INSERT INTO lxd_templates (template_name, image_name) VALUES (?, ?)', (base_template, base_template))
+                self.mm.db.commit()
+
+            for special_template in BUILD_SPECIALIZED_IMAGES:
+                dbc.execute('INSERT INTO lxd_templates (template_name, image_name) VALUES (?, ?)', (special_template, special_template))
+                self.mm.db.commit()
+
 
     
     def build(self):
