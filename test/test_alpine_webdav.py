@@ -50,7 +50,7 @@ class TestWebdav(unittest.TestCase, ModuleTestBase):
         self.assertTrue(resp.status_code == 200)
 
     def test_webdav(self):
-        server_2_ip = '172.16.3.150'
+        server_2_ip = '172.16.3.155'
         error, server_id = self.mm['webdavalpine'].run("add_server", ip_addr=server_2_ip, fqdn='webdav.test')
         self.assertTrue(error == None, msg=error)
 

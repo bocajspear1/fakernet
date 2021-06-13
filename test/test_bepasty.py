@@ -26,6 +26,7 @@ class TestBepasty(ModuleTestBase, unittest.TestCase):
         self.module_name = 'pastebin-bepasty'
         self.load_mm()
         self.server_1_ip = '172.16.3.130'
+        self.server_fqdn = 'pastebin.test'
 
     def stop_server(self, server_id):
         error, _ = self.mm[self.module_name].run("stop_server", id=server_id)
@@ -33,7 +34,7 @@ class TestBepasty(ModuleTestBase, unittest.TestCase):
         time.sleep(5)
 
     def create_server(self):
-        error, server_id = self.mm[self.module_name].run("add_server", ip_addr=self.server_1_ip, fqdn='pastebin.test')
+        error, server_id = self.mm[self.module_name].run("add_server", ip_addr=self.server_1_ip, fqdn=self.server_fqdn)
         self.assertTrue(error == None, msg=error)
         time.sleep(12)
         return server_id
@@ -43,12 +44,12 @@ class TestBepasty(ModuleTestBase, unittest.TestCase):
         self.assertTrue(error == None, msg=error)
 
     def do_test_basic_functionality(self, server_id):
-        resp = requests.get("https://{}/".format(self.server_1_ip), verify=False)
+        resp = requests.get("https://{}/".format(self.server_fqdn), verify=TEST_CA_PATH)
         self.assertTrue(resp.status_code == 200)
 
     def test_bepasty(self):
         server_1_ip = '172.16.3.130'
-        error, server_id = self.mm['pastebin-bepasty'].run("add_server", ip_addr=server_1_ip, fqdn='pastebin.test')
+        error, server_id = self.mm['pastebin-bepasty'].run("add_server", ip_addr=server_1_ip, fqdn=self.server_fqdn)
         self.assertTrue(error == None, msg=error)
 
         time.sleep(10)
@@ -60,8 +61,8 @@ class TestBepasty(ModuleTestBase, unittest.TestCase):
             "maxlife-unit": "months"
         }
      
-        url_test = "https://172.16.3.130/+upload"
-        resp = requests.post(url_test, data=data, verify=False) 
+        url_test = "https://{}/+upload".format(self.server_fqdn)
+        resp = requests.post(url_test, data=data, verify=TEST_CA_PATH) 
 
         self.assertTrue(resp.status_code == 200, msg="status was {}".format(resp.status_code))
         # Ensure we got redirected
@@ -81,7 +82,7 @@ class TestBepasty(ModuleTestBase, unittest.TestCase):
         self.assertTrue(error == None, msg=error)
         time.sleep(5)
 
-        resp = requests.get("https://172.16.3.130/{}/+inline".format(name), verify=False) 
+        resp = requests.get("https://{}/{}/+inline".format(self.server_fqdn, name), verify=TEST_CA_PATH) 
         self.assertTrue(resp.status_code == 200)
 
         error, server_id = self.mm['pastebin-bepasty'].run("remove_server", id=server_id)

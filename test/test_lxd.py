@@ -29,6 +29,8 @@ class TestLXD(ModuleTestBase, unittest.TestCase):
         self.domain_1_name = 'lxd1.test'
         self.server_2_ip = '172.16.3.151'
         self.domain_2_name = 'lxd2.test'
+        self.server_3_ip = '172.16.3.152'
+        self.domain_3_name = 'lxd3.test'
 
     def stop_server(self, server_id):
         error, _ = self.mm[self.module_name].run("stop_container", id=server_id)
@@ -116,17 +118,17 @@ class TestLXD(ModuleTestBase, unittest.TestCase):
 
 
     def test_add_two_containers(self):
-        error, cont_id = self.mm['lxd'].run("add_container", ip_addr=self.server_1_ip, fqdn=self.domain_1_name, template='ubuntu_1804_base', password='testtest')
+        error, cont_id = self.mm['lxd'].run("add_container", ip_addr=self.server_2_ip, fqdn=self.domain_2_name, template='ubuntu_1804_base', password='testtest')
         self.assertTrue(error == None, msg=error)
 
-        error, cont_id2 = self.mm['lxd'].run("add_container", ip_addr=self.server_2_ip, fqdn=self.domain_2_name, template='ubuntu_1804_base', password='testtest')
+        error, cont_id2 = self.mm['lxd'].run("add_container", ip_addr=self.server_3_ip, fqdn=self.domain_3_name, template='ubuntu_1804_base', password='testtest')
         self.assertTrue(error == None, msg=error)
 
         username = 'root'
         password = 'testtest'
 
-        self.assertTrue(self.can_ssh_to_system(self.server_1_ip, username, password), msg="Could not SSH correctly to {} with creds {}:{}".format(self.server_1_ip, username, password))
         self.assertTrue(self.can_ssh_to_system(self.server_2_ip, username, password), msg="Could not SSH correctly to {} with creds {}:{}".format(self.server_2_ip, username, password))
+        self.assertTrue(self.can_ssh_to_system(self.server_3_ip, username, password), msg="Could not SSH correctly to {} with creds {}:{}".format(self.server_3_ip, username, password))
         
 
         error, _ = self.mm['lxd'].run("remove_container", id=cont_id2)

@@ -252,7 +252,7 @@ class LXDBaseModule(BaseModule):
         try:
             container = self.mm.lxd.containers.get(container_name)
             container.start()
-            time.sleep(5)
+            time.sleep(10)
         except pylxd.exceptions.LXDAPIException as e:
             return str(e), None
 

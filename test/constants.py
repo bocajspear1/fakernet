@@ -1,2 +1,3 @@
 TEST_DNS_ROOT='172.16.3.2'
 TEST_WEB_VAR="FAKERNET_TEST_WEB"
+TEST_CA_PATH="./work/minica/1/ca.crt"

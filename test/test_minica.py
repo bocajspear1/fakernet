@@ -30,12 +30,17 @@ class TestMiniCA(unittest.TestCase):
         error, cert_data = self.mm['minica'].run("generate_host_cert", id=1, fqdn="test.test")
         priv_key = cert_data[0]
         cert = cert_data[1]
-        print(priv_key, cert)
         
         self.assertTrue(error == None, msg=error)
 
         outcert = open("/tmp/testcrt.pem", "w+")
         outcert.write(cert)
         outcert.close()
+
+        outcert = open("/tmp/testkey.pem", "w+")
+        outcert.write(priv_key)
+        outcert.close()
+
+        subprocess.run(["/usr/bin/openssl", "verify", "-CAfile", TEST_CA_PATH, "/tmp/testcrt.pem"])
 
 
