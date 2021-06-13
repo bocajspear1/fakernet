@@ -29,7 +29,7 @@ To take full advantage of FakerNet, hosts should point to, directly or indirectl
 Real Internet Access
 ---------------------
 
-Depending on your setup, you may or may not want access to real Internet resources in your environment. FakerNet can work alongside 
+Depending on your setup, you may or may not want access to real Internet resources in your environment.
 
 No Internet
 ^^^^^^^^^^^^
