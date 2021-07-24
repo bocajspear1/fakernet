@@ -119,6 +119,18 @@ class DockerBaseModule(BaseModule):
             return "Could not remove server in Docker", None
         
         return None, True
+    
+    def docker_run(self, container_name, cmd):
+        # Run command on the Docker instance
+        try:
+            container = self.mm.docker.containers.get(container_name)
+            return container.exec_run(cmd)
+        except docker.errors.NotFound:
+            return "Server not found in Docker", None
+        except docker.errors.APIError:
+            return "Could not remove server in Docker", None
+        
+        return None, True
 
     def docker_start(self, container_name, server_ip):
         # Get the server

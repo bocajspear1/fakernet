@@ -81,6 +81,10 @@ class MattermostServer(DockerBaseModule):
             fqdn = result[0]
             container_name = INSTANCE_TEMPLATE.format(mattermost_id)
 
+            self.docker_start(container_name, server_ip)
+
+            self.docker_run(container_name, "chown -R root:root /mattermost")
+
             # Try to stop the server first, ignore errors as the container may have crashed or been killed externally
             self.docker_stop(container_name, server_ip)
 

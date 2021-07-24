@@ -1,3 +1,4 @@
+setuptools_rust
 prompt_toolkit
 dnspython
 requests
