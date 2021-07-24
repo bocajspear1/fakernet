@@ -13,7 +13,7 @@ COLOR_ORANGE="\e[1;33m"
 COLOR_RESET="\e[0m"
 
 ShowHelp() {
-  echo "install_ubuntu.sh [-u <USER>] [-n] [-d <DOCKER_PROXY>]"
+  echo "install_ubuntu.sh [-u <USER>] [-n] [-d <DOCKER_PROXY>] [-f]"
 }
 
 while getopts ":nfhu:d:" option; do
@@ -103,13 +103,16 @@ fi
 
 sudo systemctl restart docker
 
-sleep 30
+# Wait until dockremap has been populated.
+# Duplicate entries can cause an issue
+while [ -z "$(grep dockremap /etc/subuid)" ]; do 
+    sleep 20; 
+done;
 
 echo -e "${COLOR_BLUE}Configuring subuid/subgid...${COLOR_RESET}"
+# Allow dockremap to map container root to host UID
 echo "dockremap:${INSTALL_UID}:1" > /tmp/.temp_subuid
 echo "dockremap:${INSTALL_UID}:1" > /tmp/.temp_subgid
-echo "dockremap:231072:65536" > /tmp/.temp_subuid
-echo "dockremap:231072:65536" > /tmp/.temp_subgid
 cat /etc/subuid >> /tmp/.temp_subuid
 cat /etc/subgid >> /tmp/.temp_subgid
 sudo mv /tmp/.temp_subuid /etc/subuid
@@ -145,7 +148,9 @@ sudo chown -R ${INSTALL_USER} /opt/fakernet
 if [[ "$NO_PYTHON" -ne "1" ]]; then
     echo -e "${COLOR_BLUE}Install Python components...${COLOR_RESET}"
     sudo --user ${INSTALL_USER} python3 -m venv /opt/fakernet/venv
-    sudo --user ${INSTALL_USER} -- bash -c "source /opt/fakernet/venv/bin/activate && pip3 install -r /opt/fakernet/requirements.txt"
+    # Python cryptography library needs setuptools_rust to be installed first
+    sudo --user ${INSTALL_USER} --login -- bash -c "source /opt/fakernet/venv/bin/activate && pip3 install setuptools_rust"
+    sudo --user ${INSTALL_USER} --login -- bash -c "source /opt/fakernet/venv/bin/activate && pip3 install -r /opt/fakernet/requirements.txt"
 else
     echo -e "${COLOR_ORANGE}Skipping installing Python components...${COLOR_RESET}"
 fi
@@ -174,6 +179,7 @@ EOF
 
 
 sudo systemctl stop docker  
+sleep 10
 sudo systemctl start docker  
 
 echo -e "${COLOR_GREEN}Installation is complete!${COLOR_RESET}"

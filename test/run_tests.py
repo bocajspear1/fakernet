@@ -62,7 +62,7 @@ if __name__ == '__main__':
 
         for line in testlines:
             line = line.strip()
-            if not line.startswith("#"):
+            if not line.startswith("#") and line.strip() != "":
                 print("Loaded {}".format(line))
                 module = importlib.import_module(line)
                 suite.addTests(loader.loadTestsFromModule(module))
