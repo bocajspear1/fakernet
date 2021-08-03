@@ -18,7 +18,7 @@ ShowHelp() {
   echo "install_ubuntu.sh [-u <USER>] [-n] [-d <DOCKER_PROXY>] [-f] [-s]"
 }
 
-while getopts ":nfhu:d:" option; do
+while getopts ":nfhsu:d:" option; do
     case $option in
         h) # display Help
             ShowHelp
