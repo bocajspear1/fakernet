@@ -156,7 +156,7 @@ else
     echo -e "${COLOR_BLUE}Installing FakerNet to ${INSTALL_DIR}...${COLOR_RESET}"
     sudo cp -p -r `pwd` ${INSTALL_DIR}
     sudo chown -R ${INSTALL_USER} ${INSTALL_DIR} 
-    sudo chmod -R 775 ${INSTALL_DIR}
+    sudo chmod 775 ${INSTALL_DIR}
 fi
 
 
