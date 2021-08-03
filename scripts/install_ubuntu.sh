@@ -1,9 +1,11 @@
 #!/bin/bash
 
-NO_PYTHON=0
+NO_MOVE=0
 FORCE=0
+CREATE_SERVICE=0
 INSTALL_USER=$(id -u -n)
 INSTALL_UID=$(id -u)
+INSTALL_DIR=/opt/fakernet
 DOCKER_PROXY=""
 
 COLOR_RED="\e[1;31m"
@@ -13,7 +15,7 @@ COLOR_ORANGE="\e[1;33m"
 COLOR_RESET="\e[0m"
 
 ShowHelp() {
-  echo "install_ubuntu.sh [-u <USER>] [-n] [-d <DOCKER_PROXY>] [-f]"
+  echo "install_ubuntu.sh [-u <USER>] [-n] [-d <DOCKER_PROXY>] [-f] [-s]"
 }
 
 while getopts ":nfhu:d:" option; do
@@ -26,7 +28,10 @@ while getopts ":nfhu:d:" option; do
             INSTALL_UID=$(id -u $OPTARG)
             ;;
         n)
-            NO_PYTHON=1
+            NO_MOVE=1
+            ;;
+        s)
+            CREATE_SERVICE=1
             ;;
         d)
             DOCKER_PROXY=$OPTARG
@@ -41,6 +46,10 @@ while getopts ":nfhu:d:" option; do
     esac
 done
 
+# Make sure the time synced
+sudo timedatectl set-ntp off
+sudo timedatectl set-ntp on
+sleep 10
 
 if [[ "$INSTALL_UID" -eq "0" ]]; then
     echo -e "${COLOR_RED}Do not set the install user as root. sudo will be called when necessary."
@@ -139,21 +148,24 @@ sudo systemctl enable ripd
 sudo systemctl start zebra 
 sudo systemctl start ripd 
 
-echo -e "${COLOR_BLUE}Installing FakerNet to /opt/fakernet...${COLOR_RESET}"
-sudo mkdir -p /opt/fakernet 
-sudo chmod -R 775 /opt/fakernet
-sudo cp -p -r ./* /opt/fakernet
-sudo chown -R ${INSTALL_USER} /opt/fakernet 
 
-if [[ "$NO_PYTHON" -ne "1" ]]; then
-    echo -e "${COLOR_BLUE}Install Python components...${COLOR_RESET}"
-    sudo --user ${INSTALL_USER} python3 -m venv /opt/fakernet/venv
-    # Python cryptography library needs setuptools_rust to be installed first
-    sudo --user ${INSTALL_USER} --login -- bash -c "source /opt/fakernet/venv/bin/activate && pip3 install setuptools_rust"
-    sudo --user ${INSTALL_USER} --login -- bash -c "source /opt/fakernet/venv/bin/activate && pip3 install -r /opt/fakernet/requirements.txt"
+if [[ "$NO_MOVE" -eq "1" ]]; then
+    INSTALL_DIR=`pwd`
+    echo -e "${COLOR_BLUE}Keeping FakerNet in ${INSTALL_DIR}...${COLOR_RESET}"
 else
-    echo -e "${COLOR_ORANGE}Skipping installing Python components...${COLOR_RESET}"
+    echo -e "${COLOR_BLUE}Installing FakerNet to ${INSTALL_DIR}...${COLOR_RESET}"
+    sudo cp -p -r `pwd` ${INSTALL_DIR}
+    sudo chown -R ${INSTALL_USER} ${INSTALL_DIR} 
+    sudo chmod -R 775 ${INSTALL_DIR}
 fi
+
+
+echo -e "${COLOR_BLUE}Install Python components...${COLOR_RESET}"
+sudo --user ${INSTALL_USER} python3 -m venv ${INSTALL_DIR}/venv
+# Python cryptography library needs setuptools_rust to be installed first
+sudo --user ${INSTALL_USER} --login -- bash -c "source ${INSTALL_DIR}/venv/bin/activate && pip3 install setuptools_rust"
+sudo --user ${INSTALL_USER} --login -- bash -c "source ${INSTALL_DIR}/venv/bin/activate && pip3 install -r ${INSTALL_DIR}/requirements.txt"
+
 
 
 echo -e "${COLOR_BLUE}Running 'lxd init'...${COLOR_RESET}"
@@ -182,11 +194,25 @@ sudo systemctl stop docker
 sleep 10
 sudo systemctl start docker  
 
+if [[ "$CREATE_SERVICE" -eq "1" ]]; then
+    echo -e "${COLOR_BLUE}Creating FakerNet service...${COLOR_RESET}"
+    sudo cp scripts/fakernet.service.template /etc/systemd/system/fakernet.service
+    sudo sed -i "s_CURRENTUSER_${INSTALL_USER}_g" /etc/systemd/system/fakernet.service
+    sudo sed -i "s_PWD_${INSTALL_DIR}_g" /etc/systemd/system/fakernet.service
+    sudo systemctl daemon-reload 
+fi
+
 echo -e "${COLOR_GREEN}Installation is complete!${COLOR_RESET}"
 
-echo ""
-echo -e "${COLOR_ORANGE}=============================================================="
-echo "WARNING: YOU MUST RE-LOGIN!"
-echo "OTHERWISE GROUP PERMISSIONS WILL NOT COME INTO EFFECT!"
-echo "AND YOU WILL GET PERMISSION DENIED ERRORS FOR DOCKER!"
-echo -e "==============================================================${COLOR_RESET}"
+CURRENT_UID=$(id -u)
+
+if [[ "$CURRENT_UID" -eq "$INSTALL_UID" ]]; then
+    echo ""
+    echo -e "${COLOR_ORANGE}=============================================================="
+    echo "WARNING: YOU MUST RE-LOGIN!"
+    echo "OTHERWISE GROUP PERMISSIONS WILL NOT COME INTO EFFECT!"
+    echo "AND YOU WILL GET PERMISSION DENIED ERRORS FOR DOCKER!"
+    echo -e "==============================================================${COLOR_RESET}"
+else
+    echo -e "${COLOR_GREEN}Logon as user ${INSTALL_USER} to run FakerNet!${COLOR_RESET}"
+fi

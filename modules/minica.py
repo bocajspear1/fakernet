@@ -304,6 +304,7 @@ class MiniCAServer(DockerBaseModule):
             if resp.status_code != 200:
                 return "Signing failed: " + resp.text, None 
             
+            resp.encoding = 'utf-8'
             signed_cert = resp.text
 
             return None, (new_key_pem.decode(), signed_cert)

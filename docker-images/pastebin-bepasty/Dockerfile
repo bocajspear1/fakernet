@@ -12,7 +12,7 @@ RUN chown -R bepasty:bepasty /opt/bepasty
 RUN chmod 755 /opt/bepasty
 RUN cd repo && pip3 install -e .
 RUN pip3 install greenlet
-RUN pip3 install eventlet
+RUN pip3 install eventlet==0.30.2
 RUN pip3 install gunicorn[eventlet]
 
 COPY setup.sh /opt/bepasty/
