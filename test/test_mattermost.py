@@ -35,7 +35,7 @@ class TestMattermost(ModuleTestBase, unittest.TestCase):
     def create_server(self):
         error, server_id = self.mm[self.module_name].run("add_server", ip_addr=self.server_1_ip, fqdn=self.domain_1_name)
         self.assertTrue(error == None, msg=error)
-        time.sleep(30)
+        time.sleep(120)
         return server_id
 
     def remove_server(self, server_id):

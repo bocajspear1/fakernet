@@ -142,31 +142,33 @@ class DockerBaseModule(BaseModule):
         except 	docker.errors.APIError:
             return "Could not start server in Docker", None
 
-        # Configure networking
-        err, switch = self.mm['netreserve'].run("get_ip_switch", ip_addr=server_ip)
-        if err:
-            return err, None
+        if server_ip is not None:
+            # Configure networking
+            err, switch = self.mm['netreserve'].run("get_ip_switch", ip_addr=server_ip)
+            if err:
+                return err, None
 
-        err, network = self.mm['netreserve'].run("get_ip_network", ip_addr=server_ip)
-        if err:
-            return err, None
-        
-        mask = network.prefixlen
-        gateway = str(list(network.hosts())[0])
+            err, network = self.mm['netreserve'].run("get_ip_network", ip_addr=server_ip)
+            if err:
+                return err, None
+            
+            mask = network.prefixlen
+            gateway = str(list(network.hosts())[0])
 
-        err, _ = self.ovs_set_ip(container_name, switch, "eth0", "{}/{}".format(server_ip, mask), gateway)
-        if err is not None:
-            return err, None
+            err, _ = self.ovs_set_ip(container_name, switch, "eth0", "{}/{}".format(server_ip, mask), gateway)
+            if err is not None:
+                return err, None
 
         return None, True
 
     def docker_stop(self, container_name, server_ip):
-        # Remove port from switch
-        err, switch = self.mm['netreserve'].run("get_ip_switch", ip_addr=server_ip)
-        if err:
-            return err, None
+        if server_ip is not None:
+            # Remove port from switch
+            err, switch = self.mm['netreserve'].run("get_ip_switch", ip_addr=server_ip)
+            if err:
+                return err, None
 
-        self.ovs_remove_ports(container_name, switch)
+            self.ovs_remove_ports(container_name, switch)
 
         # Stop container in Docker
         try:

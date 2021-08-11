@@ -82,7 +82,7 @@ class MattermostServer(DockerBaseModule):
             fqdn = result[0]
             container_name = INSTANCE_TEMPLATE.format(mattermost_id)
 
-            self.docker_start(container_name, server_ip)
+            self.docker_start(container_name, None)
             time.sleep(20)
 
             self.docker_run(container_name, "chown -R root:root /mattermost")

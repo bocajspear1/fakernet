@@ -46,8 +46,9 @@ if __name__ == '__main__':
     runner = None
 
     subprocess.run("sudo iptables -t nat -A POSTROUTING -s 172.16.3.0/24 -j MASQUERADE ", shell=True)
+    subprocess.run("sudo iptables -P FORWARD ACCEPT", shell=True)
     subprocess.run(f"sudo iptables -t nat -A OUTPUT -p udp -m udp --dport 53 -j DNAT ! -d 127.0.0.0/24 --to-destination {TEST_DNS_ROOT}:53", shell=True)
-    subprocess.run(f"sudo iptables -t nat -A OUTPUT -p udp -m udp --dport 53 -j DNAT ! -s 172.16.3.0/24 --to-destination {TEST_DNS_ROOT}:53", shell=True)
+    subprocess.run(f"sudo iptables -t nat -A OUTPUT -p udp -m udp --dport 53 -j DNAT ! -s 172.16.3.0/24 ! -d 127.0.0.0/24 --to-destination {TEST_DNS_ROOT}:53", shell=True)
 
     suite.addTests(loader.loadTestsFromModule(test_base))
     if args.module:
@@ -72,7 +73,7 @@ if __name__ == '__main__':
 
     # Redirect DNS so we can resolve internal names
     subprocess.run(f"sudo iptables -t nat -D OUTPUT -p udp -m udp --dport 53 -j DNAT ! -d 127.0.0.0/24 --to-destination {TEST_DNS_ROOT}:53", shell=True)
-    subprocess.run(f"sudo iptables -t nat -D OUTPUT -p udp -m udp --dport 53 -j DNAT ! -s 172.16.3.0/24 --to-destination {TEST_DNS_ROOT}:53", shell=True)
+    subprocess.run(f"sudo iptables -t nat -D OUTPUT -p udp -m udp --dport 53 -j DNAT ! -s 172.16.3.0/24  ! -d 127.0.0.0/24 --to-destination {TEST_DNS_ROOT}:53", shell=True)
     # Let internet-accessing modules get out with NAT
     subprocess.run("sudo iptables -t nat -D POSTROUTING -s 172.16.3.0/24 -j MASQUERADE ", shell=True)
 
