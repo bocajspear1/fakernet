@@ -15,6 +15,8 @@ for module in module_list:
     temp = importlib.import_module("modules." + module.replace(".py", ""))
     shortname = temp.__MODULE__.__SHORTNAME__
 
+    print("Generating {}".format(shortname))
+
     modules[shortname] = temp
 
     output_page = """.. _module-{}:
@@ -30,6 +32,8 @@ for module in module_list:
         output_page += long_desc_file.read()
         long_desc_file.close()
         output_page += "\n\n"
+
+    output_page += "See :ref:`param-types` for parameter types.\n\n"
     
     functions = {}
 

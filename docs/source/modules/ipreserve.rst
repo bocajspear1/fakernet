@@ -8,6 +8,8 @@ This module manages IP reservations in the defined networks, ensuring that IPs s
 
 A network must be defined in ``netreserve`` that contains the IP for a reservation. Otherwise, an error will be returned.
 
+See :ref:`param-types` for parameter types.
+
 list_ips
 ^^^^^^^^
 

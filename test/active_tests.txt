@@ -7,7 +7,8 @@ test_inspircd
 test_bepasty
 test_alpine_webdav
 test_tinyproxy
-#test_mattermost
+test_mattermost
 test_easyzone
 test_minica
 test_external
+test_params

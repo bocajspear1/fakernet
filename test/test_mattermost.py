@@ -24,7 +24,7 @@ class TestMattermost(ModuleTestBase, unittest.TestCase):
     def setUp(self):
         self.module_name = 'mattermost'
         self.load_mm()
-        self.server_1_ip = '172.16.3.170'
+        self.server_1_ip = '172.16.3.171'
         self.domain_1_name = 'mattermost1.test'
 
     def stop_server(self, server_id):
@@ -35,7 +35,7 @@ class TestMattermost(ModuleTestBase, unittest.TestCase):
     def create_server(self):
         error, server_id = self.mm[self.module_name].run("add_server", ip_addr=self.server_1_ip, fqdn=self.domain_1_name)
         self.assertTrue(error == None, msg=error)
-        time.sleep(120)
+        time.sleep(180)
         return server_id
 
     def remove_server(self, server_id):

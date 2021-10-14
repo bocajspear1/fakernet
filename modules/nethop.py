@@ -124,12 +124,14 @@ class NetReservation(LXDBaseModule):
                         "eth0": {
                             "type": "nic",
                             "nictype": "bridged",
-                            "parent": front_switch
+                            "parent": front_switch,
+                            "name": "eth0"
                         },
                         "eth1": {
                             "type": "nic",
                             "nictype": "bridged",
-                            "parent": new_switch
+                            "parent": new_switch,
+                            "name": "eth1"
                         }
                     },
                 }, wait=True)
@@ -140,12 +142,15 @@ class NetReservation(LXDBaseModule):
             if error != None:
                 return error, None
 
-            time.sleep(5)
+            time.sleep(10)
             self.lxd_execute(container_name, "echo '' >> /etc/quagga/zebra.conf")
             self.lxd_execute(container_name, "echo 'router rip' >> /etc/quagga/ripd.conf")
             self.lxd_execute(container_name, "echo ' version 2' >> /etc/quagga/ripd.conf")
             self.lxd_execute(container_name, "echo ' network eth0' >> /etc/quagga/ripd.conf")
             self.lxd_execute(container_name, "echo ' network eth1' >> /etc/quagga/ripd.conf")
+            self.lxd_execute(container_name, "echo ' redistribute connected' >> /etc/quagga/ripd.conf")
+            self.lxd_execute(container_name, "service zebra restart")
+            self.lxd_execute(container_name, "service ripd restart")
             self.lxd_execute(container_name, "service zebra restart")
             self.lxd_execute(container_name, "service ripd restart")
 
@@ -167,7 +172,7 @@ class NetReservation(LXDBaseModule):
                     'write mem'
                 ])
 
-            return None, True
+            return None, hop_id
 
         elif func == "remove_network_hop":
             perror, _ = self.validate_params(self.__FUNCS__[func], kwargs)

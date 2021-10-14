@@ -26,6 +26,7 @@ class TestPwndrop(ModuleTestBase, unittest.TestCase):
         self.module_name = 'pwndrop'
         self.load_mm()
         self.server_1_ip = '172.16.3.45'
+        self.dns_1 = 'pwndrop.test'
 
     def stop_server(self, server_id):
         error, _ = self.mm[self.module_name].run("stop_server", id=server_id)
@@ -33,7 +34,7 @@ class TestPwndrop(ModuleTestBase, unittest.TestCase):
         time.sleep(5)
 
     def create_server(self):
-        error, server_id = self.mm[self.module_name].run("add_server", ip_addr=self.server_1_ip, fqdn='pwndrop.test')
+        error, server_id = self.mm[self.module_name].run("add_server", ip_addr=self.server_1_ip, fqdn=self.dns_1)
         self.assertTrue(error == None, msg=error)
         time.sleep(12)
         return server_id
@@ -43,5 +44,5 @@ class TestPwndrop(ModuleTestBase, unittest.TestCase):
         self.assertTrue(error == None, msg=error)
 
     def do_test_basic_functionality(self, server_id):
-        resp = requests.get("https://{}/pwndrop".format(self.server_1_ip), verify=False)
+        resp = requests.get("https://{}/pwndrop".format(self.dns_1), verify=TEST_CA_PATH)
         self.assertTrue(resp.status_code == 200)

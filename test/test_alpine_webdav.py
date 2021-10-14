@@ -28,6 +28,7 @@ class TestWebdav(unittest.TestCase, ModuleTestBase):
         self.module_name = 'webdavalpine'
         self.load_mm()
         self.server_1_ip = '172.16.3.140'
+        self.dns_1 = 'webdav.test'
     
 
     def stop_server(self, server_id):
@@ -36,7 +37,7 @@ class TestWebdav(unittest.TestCase, ModuleTestBase):
         time.sleep(5)
 
     def create_server(self):
-        error, server_id = self.mm['webdavalpine'].run("add_server", ip_addr=self.server_1_ip, fqdn='webdav.test')
+        error, server_id = self.mm['webdavalpine'].run("add_server", ip_addr=self.server_1_ip, fqdn=self.dns_1)
         self.assertTrue(error == None, msg=error)
         time.sleep(5)
         return server_id
@@ -46,23 +47,24 @@ class TestWebdav(unittest.TestCase, ModuleTestBase):
         self.assertTrue(error == None, msg=error)
 
     def do_test_basic_functionality(self, server_id):
-        resp = requests.get("https://{}/".format(self.server_1_ip), verify=False)
+        resp = requests.get("https://{}/".format(self.dns_1), verify=TEST_CA_PATH)
         self.assertTrue(resp.status_code == 200)
 
     def test_webdav(self):
         server_2_ip = '172.16.3.155'
-        error, server_id = self.mm['webdavalpine'].run("add_server", ip_addr=server_2_ip, fqdn='webdav.test')
+        dns_2 = 'webdav2.test'
+        error, server_id = self.mm['webdavalpine'].run("add_server", ip_addr=server_2_ip, fqdn=dns_2)
         self.assertTrue(error == None, msg=error)
 
-        time.sleep(10)
-        webdav_url = "https://{}/files/".format(server_2_ip)
+        time.sleep(30)
+        webdav_url = "https://{}/files/".format(dns_2)
 
         full_path = parentdir + "/work/webdavalpine/1/webdav/admin.pass"
         self.assertTrue(os.path.exists(full_path), msg="{} does not exist".format(full_path))
 
         admin_pass = open(full_path, "r").read().strip()
 
-        resp = requests.get("https://{}/".format(server_2_ip), verify=False)
+        resp = requests.get("https://{}/".format(dns_2), verify=TEST_CA_PATH)
         self.assertTrue(resp.status_code == 200)
 
         options = {
@@ -71,7 +73,7 @@ class TestWebdav(unittest.TestCase, ModuleTestBase):
             'webdav_password': admin_pass
         }
         client = Client(options)
-        client.verify = False 
+        client.verify = TEST_CA_PATH 
         result = client.check("public")
         self.assertTrue(result == True)
         result = client.list()
@@ -85,7 +87,7 @@ class TestWebdav(unittest.TestCase, ModuleTestBase):
             'webdav_hostname': webdav_url
         })
 
-        unauth_client.verify = False
+        unauth_client.verify = TEST_CA_PATH
         public_list = unauth_client.list("public/")
         self.assertTrue(len(public_list) > 0)
 
@@ -103,7 +105,7 @@ class TestWebdav(unittest.TestCase, ModuleTestBase):
 
         time.sleep(10)
 
-        resp = requests.get("https://{}/".format(server_2_ip), verify=False)
+        resp = requests.get("https://{}/".format(dns_2), verify=TEST_CA_PATH)
         self.assertTrue(resp.status_code == 200)
 
         options = {
@@ -112,7 +114,7 @@ class TestWebdav(unittest.TestCase, ModuleTestBase):
             'webdav_password': admin_pass
         }
         client2 = Client(options)
-        client2.verify = False 
+        client2.verify = TEST_CA_PATH 
         public_list = client2.list("public/")
         self.assertTrue(len(public_list) > 0)
         self.assertTrue(public_list[1] == "testdata")

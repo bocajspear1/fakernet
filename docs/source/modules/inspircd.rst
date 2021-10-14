@@ -4,6 +4,8 @@ inspircd
 ========
 
     
+See :ref:`param-types` for parameter types.
+
 list
 ^^^^
 

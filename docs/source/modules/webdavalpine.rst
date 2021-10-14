@@ -12,6 +12,8 @@ References
 * `Apache WebDAV Configuration <https://www.codeotaku.com/journal/2009-04/apache-webdav-configuration/index>`_
 * `configure apache/webdav readonly for user x, read/write for user y <https://serverfault.com/questions/294386/configure-apache-webdav-readonly-for-user-x-read-write-for-user-y>`_
 
+See :ref:`param-types` for parameter types.
+
 list
 ^^^^
 

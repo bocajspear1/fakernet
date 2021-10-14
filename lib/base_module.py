@@ -5,6 +5,7 @@
 import subprocess 
 import os
 import time
+import re
 
 import docker
 import pylxd
@@ -66,9 +67,45 @@ class BaseModule():
 
     def validate_params(self, func_def, kwargs):
         for item in func_def:
-            if item != "_desc":
-                if item not in kwargs:
-                    return "'{}' not set".format(item), None
+            item_type = func_def[item]
+            if item == "_desc":
+                continue 
+            
+            if item not in kwargs:
+                return "'{}' not set".format(item), None
+
+            item_val = str(kwargs[item])
+
+            if item_type == "INTEGER":
+                if re.fullmatch(r"[0-9]+", item_val) == None:
+                    return "'{}' is not a valid '{}' for {}".format(item_val, item_type, item), None
+            elif item_type == "ADVTEXT":
+                if re.fullmatch(r"[- \t,._A-Za-z0-9!@#$%^&*()_+<>?\"':|\[\]{}]+", item_val) == None and item_val.strip() != "":
+                    return "'{}' is not a valid '{}' for {}".format(item_val, item_type, item), None
+            elif item_type == "TEXT" or item_type == "PASSWORD":
+                if re.fullmatch(r"[- \t,._A-Za-z0-9:=/#@]+", item_val) == None and item_val.strip() != "":
+                    return "'{}' is not a valid '{}' for {}".format(item_val, item_type, item), None
+            elif item_type == "SIMPLE_STRING":
+                if re.fullmatch(r"[-A-Za-z0-9]+", item_val) == None and item_val.strip() != "":
+                    return "'{}' is not a valid '{}' for {}".format(item_val, item_type, item), None
+            elif item_type == "IP" or item_type == "IP_ADDR":
+                if re.fullmatch(r"[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+", item_val) == None:
+                    return "'{}' is not a valid '{}' for {}".format(item_val, item_type, item), None
+            elif item_type == "IP_NETWORK":
+                if re.fullmatch(r"[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+/[0-9]+", item_val) == None:
+                    return "'{}' is not a valid '{}' for {}".format(item_val, item_type, item), None
+            elif item_type == "BOOLEAN":
+                if item_val.lower() != "true" and item_val.lower() != "false":
+                    return "'{}' is not a valid '{}' for {}".format(item_val, item_type, item), None
+            elif item_type == "DECIMAL":
+                if re.fullmatch(r"[0-9]+\.{0,1}[0-9]*", item_val) == None:
+                    return "'{}' is not a valid '{}' for {}".format(item_val, item_type, item), None
+            elif isinstance(item_type, list):
+                if item_val not in item_type:
+                    selection = "|".join(item_type)
+                    return "'{}' is not a valid selection from {}".format(item_val, selection), None
+            else:
+                return "Invalid type '{}'".format(item_type), None
         
         return None, True
 

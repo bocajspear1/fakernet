@@ -18,6 +18,8 @@ The account creator is available at:
     https://<SERVER_IP>/newaccount.php
 
 
+See :ref:`param-types` for parameter types.
+
 list
 ^^^^
 

@@ -36,7 +36,7 @@ class TestBepasty(ModuleTestBase, unittest.TestCase):
     def create_server(self):
         error, server_id = self.mm[self.module_name].run("add_server", ip_addr=self.server_1_ip, fqdn=self.server_fqdn)
         self.assertTrue(error == None, msg=error)
-        time.sleep(12)
+        time.sleep(30)
         return server_id
 
     def remove_server(self, server_id):

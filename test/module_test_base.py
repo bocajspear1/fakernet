@@ -1,6 +1,7 @@
 import unittest
 import os
 import sys
+import time
 
 from constants import *
 
@@ -38,6 +39,7 @@ class ModuleTestBase():
         raise NotImplementedError
 
     def test_basic_functionality(self):
+        time.sleep(30)
         server_id = self.create_server()
         data = self.mm[self.module_name].get_list()
         found = False
@@ -53,6 +55,7 @@ class ModuleTestBase():
         self.remove_server(server_id)
 
     def test_save_restore(self):
+        time.sleep(30)
         server_id = self.create_server()
         self.do_test_basic_functionality(server_id)
         save_data = self.mm[self.module_name].save()
