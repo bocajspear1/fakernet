@@ -12,6 +12,8 @@ The web interface is available as HTTPS (signed by itself) at the container's IP
 
 Source for the CA server is available on `GitHub <https://github.com/bocajspear1/minica>`_.
 
+See :ref:`param-types` for parameter types.
+
 list
 ^^^^
 

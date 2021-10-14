@@ -7,6 +7,7 @@ import dns.resolver
 import time
 
 from constants import *
+from module_test_base import ModuleTestBase
 
 parentdir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(parentdir)
@@ -18,22 +19,31 @@ import lib.validate
 import socket
 import requests
 
-class TestInspircd(unittest.TestCase):
+class TestMattermost(ModuleTestBase, unittest.TestCase):
 
     def setUp(self):
-        self.mm = ModuleManager()
-        self.mm.load()
-        self.mm['mattermost'].check()
+        self.module_name = 'mattermost'
+        self.load_mm()
+        self.server_1_ip = '172.16.3.171'
+        self.domain_1_name = 'mattermost1.test'
 
-    def test_mattermost(self):
-        server_ip = '172.16.3.170'
-        domain_name = 'mattermost.test'
-        error, server_id = self.mm['mattermost'].run("add_server", ip_addr=server_ip, fqdn=domain_name)
+    def stop_server(self, server_id):
+        error, _ = self.mm[self.module_name].run("stop_server", id=server_id)
+        self.assertTrue(error == None, msg=error)
+        time.sleep(5)
+        
+    def create_server(self):
+        error, server_id = self.mm[self.module_name].run("add_server", ip_addr=self.server_1_ip, fqdn=self.domain_1_name)
+        self.assertTrue(error == None, msg=error)
+        time.sleep(180)
+        return server_id
+
+    def remove_server(self, server_id):
+        error, _ = self.mm[self.module_name].run("remove_server", id=server_id)
         self.assertTrue(error == None, msg=error)
 
-        time.sleep(120)
+    def do_test_basic_functionality(self, server_id):
+        resp = requests.get("https://{}/".format(self.domain_1_name), verify=TEST_CA_PATH)
+        self.assertTrue(resp.status_code == 200)
 
-
-        # error, _ = self.mm['mattermost'].run("remove_server", id=server_1_id)
-        # self.assertTrue(error == None, msg=error)
 

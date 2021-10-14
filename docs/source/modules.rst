@@ -9,19 +9,19 @@ The following is the currently available FakerNet modules.
     :maxdepth: 1
     :caption: Modules:
 
-    modules/dns
-    modules/redirect
-    modules/netreserve
-    modules/external
-    modules/simplemail
-    modules/lxd
-    modules/pwndrop
-    modules/minica
-    modules/tinyproxy
-    modules/mattermost
-    modules/nethop
-    modules/ipreserve
-    modules/webdavalpine
-    modules/inspircd
-    modules/init
     modules/pastebin-bepasty
+    modules/inspircd
+    modules/lxd
+    modules/nethop
+    modules/pwndrop
+    modules/dns
+    modules/webdavalpine
+    modules/netreserve
+    modules/redirect
+    modules/ipreserve
+    modules/tinyproxy
+    modules/minica
+    modules/simplemail
+    modules/init
+    modules/external
+    modules/mattermost

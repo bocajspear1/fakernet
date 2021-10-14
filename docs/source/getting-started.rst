@@ -55,3 +55,4 @@ Now that you've gotten FakerNet installed and configured, you can begin to use i
 
 * If you're looking for quick tutorials on how to build services, check out the :ref:`services-tutorials`.
 * For a overview of how you interact with FakerNet, check out :ref:`using-fakernet` then the :ref:`cli-usage`.
+* To get started building modules, check out :ref:`building-modules`.

@@ -40,7 +40,7 @@ class DNSServer(DockerBaseModule):
         },
         "remove_server": {
             "_desc": "Delete a DNS server",
-            "id": "IP"
+            "id": "INTEGER"
         },
         "add_server": {
             "_desc": "Add a DNS server",
@@ -59,7 +59,7 @@ class DNSServer(DockerBaseModule):
             "direction": ['fwd', 'rev'],
             "type": "TEXT",
             "fqdn": "TEXT",
-            "value": "TEXT",
+            "value": "ADVTEXT",
             "autocreate": "BOOLEAN"
         },
         "smart_remove_record": {
@@ -67,7 +67,7 @@ class DNSServer(DockerBaseModule):
             "direction": ['fwd', 'rev'],
             "type": "TEXT",
             "fqdn": "TEXT",
-            "value": "TEXT"
+            "value": "ADVTEXT"
         },
         "add_record": {
             "_desc": "Add a record to a DNS server",
@@ -76,7 +76,7 @@ class DNSServer(DockerBaseModule):
             "direction": ['fwd', 'rev'],
             "type": "TEXT",
             "name": "TEXT",
-            "value": "TEXT"
+            "value": "ADVTEXT"
         },
         "remove_record": {
             "_desc": "Remove a record from a DNS server",
@@ -85,7 +85,7 @@ class DNSServer(DockerBaseModule):
             "direction": ['fwd', 'rev'],
             "type": "TEXT",
             "name": "TEXT",
-            "value": "TEXT"
+            "value": "ADVTEXT"
         },
         "add_host": {
             "_desc": "Add a host to a DNS server",

@@ -1,6 +1,7 @@
 import os
 import shutil 
 from string import Template
+import time
 
 import docker
 from OpenSSL import crypto
@@ -80,6 +81,11 @@ class MattermostServer(DockerBaseModule):
             server_ip = result[1]
             fqdn = result[0]
             container_name = INSTANCE_TEMPLATE.format(mattermost_id)
+
+            self.docker_start(container_name, None)
+            time.sleep(20)
+
+            self.docker_run(container_name, "chown -R root:root /mattermost")
 
             # Try to stop the server first, ignore errors as the container may have crashed or been killed externally
             self.docker_stop(container_name, server_ip)
@@ -173,8 +179,12 @@ class MattermostServer(DockerBaseModule):
             err, _ = self.docker_create(container_name, vols, environment)
             if err is not None:
                 return err, None
+
+            err, _ = self.run("start_server", id=mattermost_id)
+            if err is not None:
+                return err, None
             
-            return self.run("start_server", id=mattermost_id)
+            return None, mattermost_id
         elif func == "start_server":
             perror, _ = self.validate_params(self.__FUNCS__['start_server'], kwargs)
             if perror is not None:

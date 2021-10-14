@@ -8,3 +8,4 @@ Tutorials
    :caption: Tutorials:
 
    tutorials/services-tutorials
+   tutorials/building-modules

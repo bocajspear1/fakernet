@@ -5,6 +5,7 @@
 import subprocess 
 import os
 import time
+import re
 
 import docker
 import pylxd
@@ -66,9 +67,45 @@ class BaseModule():
 
     def validate_params(self, func_def, kwargs):
         for item in func_def:
-            if item != "_desc":
-                if item not in kwargs:
-                    return "'{}' not set".format(item), None
+            item_type = func_def[item]
+            if item == "_desc":
+                continue 
+            
+            if item not in kwargs:
+                return "'{}' not set".format(item), None
+
+            item_val = str(kwargs[item])
+
+            if item_type == "INTEGER":
+                if re.fullmatch(r"[0-9]+", item_val) == None:
+                    return "'{}' is not a valid '{}' for {}".format(item_val, item_type, item), None
+            elif item_type == "ADVTEXT":
+                if re.fullmatch(r"[- \t,._A-Za-z0-9!@#$%^&*()_+<>?\"':|\[\]{}]+", item_val) == None and item_val.strip() != "":
+                    return "'{}' is not a valid '{}' for {}".format(item_val, item_type, item), None
+            elif item_type == "TEXT" or item_type == "PASSWORD":
+                if re.fullmatch(r"[- \t,._A-Za-z0-9:=/#@]+", item_val) == None and item_val.strip() != "":
+                    return "'{}' is not a valid '{}' for {}".format(item_val, item_type, item), None
+            elif item_type == "SIMPLE_STRING":
+                if re.fullmatch(r"[-A-Za-z0-9]+", item_val) == None and item_val.strip() != "":
+                    return "'{}' is not a valid '{}' for {}".format(item_val, item_type, item), None
+            elif item_type == "IP" or item_type == "IP_ADDR":
+                if re.fullmatch(r"[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+", item_val) == None:
+                    return "'{}' is not a valid '{}' for {}".format(item_val, item_type, item), None
+            elif item_type == "IP_NETWORK":
+                if re.fullmatch(r"[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+/[0-9]+", item_val) == None:
+                    return "'{}' is not a valid '{}' for {}".format(item_val, item_type, item), None
+            elif item_type == "BOOLEAN":
+                if item_val.lower() != "true" and item_val.lower() != "false":
+                    return "'{}' is not a valid '{}' for {}".format(item_val, item_type, item), None
+            elif item_type == "DECIMAL":
+                if re.fullmatch(r"[0-9]+\.{0,1}[0-9]*", item_val) == None:
+                    return "'{}' is not a valid '{}' for {}".format(item_val, item_type, item), None
+            elif isinstance(item_type, list):
+                if item_val not in item_type:
+                    selection = "|".join(item_type)
+                    return "'{}' is not a valid selection from {}".format(item_val, selection), None
+            else:
+                return "Invalid type '{}'".format(item_type), None
         
         return None, True
 
@@ -119,6 +156,18 @@ class DockerBaseModule(BaseModule):
             return "Could not remove server in Docker", None
         
         return None, True
+    
+    def docker_run(self, container_name, cmd):
+        # Run command on the Docker instance
+        try:
+            container = self.mm.docker.containers.get(container_name)
+            return container.exec_run(cmd)
+        except docker.errors.NotFound:
+            return "Server not found in Docker", None
+        except docker.errors.APIError:
+            return "Could not remove server in Docker", None
+        
+        return None, True
 
     def docker_start(self, container_name, server_ip):
         # Get the server
@@ -130,31 +179,33 @@ class DockerBaseModule(BaseModule):
         except 	docker.errors.APIError:
             return "Could not start server in Docker", None
 
-        # Configure networking
-        err, switch = self.mm['netreserve'].run("get_ip_switch", ip_addr=server_ip)
-        if err:
-            return err, None
+        if server_ip is not None:
+            # Configure networking
+            err, switch = self.mm['netreserve'].run("get_ip_switch", ip_addr=server_ip)
+            if err:
+                return err, None
 
-        err, network = self.mm['netreserve'].run("get_ip_network", ip_addr=server_ip)
-        if err:
-            return err, None
-        
-        mask = network.prefixlen
-        gateway = str(list(network.hosts())[0])
+            err, network = self.mm['netreserve'].run("get_ip_network", ip_addr=server_ip)
+            if err:
+                return err, None
+            
+            mask = network.prefixlen
+            gateway = str(list(network.hosts())[0])
 
-        err, _ = self.ovs_set_ip(container_name, switch, "eth0", "{}/{}".format(server_ip, mask), gateway)
-        if err is not None:
-            return err, None
+            err, _ = self.ovs_set_ip(container_name, switch, "eth0", "{}/{}".format(server_ip, mask), gateway)
+            if err is not None:
+                return err, None
 
         return None, True
 
     def docker_stop(self, container_name, server_ip):
-        # Remove port from switch
-        err, switch = self.mm['netreserve'].run("get_ip_switch", ip_addr=server_ip)
-        if err:
-            return err, None
+        if server_ip is not None:
+            # Remove port from switch
+            err, switch = self.mm['netreserve'].run("get_ip_switch", ip_addr=server_ip)
+            if err:
+                return err, None
 
-        self.ovs_remove_ports(container_name, switch)
+            self.ovs_remove_ports(container_name, switch)
 
         # Stop container in Docker
         try:

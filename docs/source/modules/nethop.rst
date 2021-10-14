@@ -10,6 +10,8 @@ The router is a LXD container, not a Docker container, and runs Quagga that dist
 
 If routes are having issues being distributed on the host, try restarting the Quagga service first.
 
+See :ref:`param-types` for parameter types.
+
 list
 ^^^^
 
@@ -18,7 +20,7 @@ View network hops
 add_network_hop
 ^^^^^^^^^^^^^^^
 
-Get network reservation info
+Add a network hop
 
 ..  csv-table:: Parameters
     :header: "Name", "Type"
@@ -42,7 +44,7 @@ Remove a network hop
 start_hop
 ^^^^^^^^^
 
-
+Start a hop router between networks
 
 ..  csv-table:: Parameters
     :header: "Name", "Type"
@@ -52,7 +54,7 @@ start_hop
 stop_hop
 ^^^^^^^^
 
-
+Stop a hop router between networks. Will cut off communications.
 
 ..  csv-table:: Parameters
     :header: "Name", "Type"

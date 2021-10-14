@@ -23,13 +23,13 @@ class NetReservation(BaseModule):
             "_desc": "Add network allocation",
             "net_addr": "IP_NETWORK",
             "description": "TEXT",
-            "switch": "TEXT"
+            "switch": "SIMPLE_STRING"
         },
         "add_network": {
             "_desc": "Add network allocation",
             "net_addr": "IP_NETWORK",
             "description": "TEXT",
-            "switch": "TEXT"
+            "switch": "SIMPLE_STRING"
         },
         "remove_network": {
             "_desc": "Delete a network allocation",
@@ -41,7 +41,7 @@ class NetReservation(BaseModule):
         },
         "get_network_by_switch": {
             "_desc": "Get the switch for a network",
-            "switch": "TEXT"
+            "switch": "SIMPLE_STRING"
         },
         "get_ip_switch": {
             "_desc": "Get the switch for a network",
@@ -53,7 +53,7 @@ class NetReservation(BaseModule):
         },
         "is_hop_network_by_switch": {
             "_desc": "Check if a network is a hop network (behind a hop router) by switch name",
-            "switch": "TEXT"
+            "switch": "SIMPLE_STRING"
         }
     } 
 

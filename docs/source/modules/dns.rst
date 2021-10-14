@@ -12,6 +12,8 @@ A domain name must have a zone defined for it, otherwise it will fail to allocat
 
 
 
+See :ref:`param-types` for parameter types.
+
 list
 ^^^^
 

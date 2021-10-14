@@ -28,6 +28,7 @@ if __name__ == '__main__':
     parser.add_argument('-f', '--force', action='store_true', help="Force tests without prompting for clearing everything")
     parser.add_argument('-w', '--web', action='store_true', help="Run tests through the web server rather than locally")
     parser.add_argument('-m', '--module', help="Module to run tests on")
+    parser.add_argument('-n', '--nobase', action='store_true', help="Don't load base module")
 
     args = parser.parse_args()
     if not args.force:
@@ -46,10 +47,12 @@ if __name__ == '__main__':
     runner = None
 
     subprocess.run("sudo iptables -t nat -A POSTROUTING -s 172.16.3.0/24 -j MASQUERADE ", shell=True)
+    subprocess.run("sudo iptables -P FORWARD ACCEPT", shell=True)
     subprocess.run(f"sudo iptables -t nat -A OUTPUT -p udp -m udp --dport 53 -j DNAT ! -d 127.0.0.0/24 --to-destination {TEST_DNS_ROOT}:53", shell=True)
-    subprocess.run(f"sudo iptables -t nat -A OUTPUT -p udp -m udp --dport 53 -j DNAT ! -s 172.16.3.0/24 --to-destination {TEST_DNS_ROOT}:53", shell=True)
+    subprocess.run(f"sudo iptables -t nat -A OUTPUT -p udp -m udp --dport 53 -j DNAT ! -s 172.16.3.0/24 ! -d 127.0.0.0/24 --to-destination {TEST_DNS_ROOT}:53", shell=True)
 
-    suite.addTests(loader.loadTestsFromModule(test_base))
+    if not args.nobase:
+        suite.addTests(loader.loadTestsFromModule(test_base))
     if args.module:
         # singletest = importlib.import_module("test_" + args.module)
         singletest = importlib.import_module(args.module)
@@ -62,7 +65,7 @@ if __name__ == '__main__':
 
         for line in testlines:
             line = line.strip()
-            if not line.startswith("#"):
+            if not line.startswith("#") and line.strip() != "":
                 print("Loaded {}".format(line))
                 module = importlib.import_module(line)
                 suite.addTests(loader.loadTestsFromModule(module))
@@ -72,7 +75,7 @@ if __name__ == '__main__':
 
     # Redirect DNS so we can resolve internal names
     subprocess.run(f"sudo iptables -t nat -D OUTPUT -p udp -m udp --dport 53 -j DNAT ! -d 127.0.0.0/24 --to-destination {TEST_DNS_ROOT}:53", shell=True)
-    subprocess.run(f"sudo iptables -t nat -D OUTPUT -p udp -m udp --dport 53 -j DNAT ! -s 172.16.3.0/24 --to-destination {TEST_DNS_ROOT}:53", shell=True)
+    subprocess.run(f"sudo iptables -t nat -D OUTPUT -p udp -m udp --dport 53 -j DNAT ! -s 172.16.3.0/24  ! -d 127.0.0.0/24 --to-destination {TEST_DNS_ROOT}:53", shell=True)
     # Let internet-accessing modules get out with NAT
     subprocess.run("sudo iptables -t nat -D POSTROUTING -s 172.16.3.0/24 -j MASQUERADE ", shell=True)
 

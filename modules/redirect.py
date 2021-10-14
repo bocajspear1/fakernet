@@ -13,11 +13,11 @@ class RedirectModule(BaseModule):
     __FUNCS__ = {
         "enable_dns_redirect": {
             "_desc": "Enable redirecting all DNS to primary DNS server",
-            "interface": "STRING"
+            "interface": "SIMPLE_STRING"
         },
         "disable_dns_redirect": {
             "_desc": "Disable redirecting all DNS to primary DNS server",
-            "interface": "STRING"
+            "interface": "SIMPLE_STRING"
         }
     } 
 

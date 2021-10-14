@@ -88,7 +88,7 @@ class TestDNS(unittest.TestCase):
                 self.assertTrue(SECOND_IP == item.to_text(), msg=item)
 
         error, _ = self.mm['dns'].run("remove_server", id=server_id)
-        self.assertTrue(error == None)
+        self.assertTrue(error == None, msg=error)
 
         error, _ = self.mm['dns'].run("smart_remove_external_subdomain", fqdn="subdomain.test", ip_addr=SECOND_IP)
         self.assertTrue(error == None, msg=error)

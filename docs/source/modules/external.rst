@@ -8,6 +8,8 @@ This module manages external hosts and networks. These are hosts that are not ma
 
 Usually, you'd use this for external VMs and containers.
 
+See :ref:`param-types` for parameter types.
+
 list_hosts
 ^^^^^^^^^^
 

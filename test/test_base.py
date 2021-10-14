@@ -31,19 +31,19 @@ class TestBasics(unittest.TestCase):
     def test_build_base(self):
         self.mm['netreserve'].check()
         error, result = self.mm['netreserve'].run("add_network", description="test_network", net_addr="172.16.3.0/24", switch="testnet0")
-        self.assertTrue(error == None)
+        self.assertTrue(error == None, msg=error)
 
         self.mm['dns'].check()
         error, result = self.mm['dns'].run("add_server", ip_addr=TEST_DNS_ROOT, description="test_dns", domain="test")
-        self.assertTrue(error == None)
+        self.assertTrue(error == None, msg=error)
         error, result = self.mm['dns'].run("add_zone", id=1, direction="fwd", zone="test")
-        self.assertTrue(error == None)
+        self.assertTrue(error == None, msg=error)
         error, result = self.mm['dns'].run("add_forwarder", id=1, ip_addr="8.8.8.8")
-        self.assertTrue(error == None)
+        self.assertTrue(error == None, msg=error)
 
         self.mm['minica'].check()
         error, result = self.mm['minica'].run("add_server", fqdn="ca.test", ip_addr="172.16.3.3")
-        self.assertTrue(error == None)
+        self.assertTrue(error == None, msg=error)
 
         return True
 
