@@ -46,7 +46,7 @@ function update_system_info() {
         }
     }
 
-    http.open("GET", 'system_data');
+    http.open("GET", 'api/v1/_system_data');
     http.send();
 }
 
@@ -57,7 +57,7 @@ function update_server_list() {
     http.onreadystatechange = (e) => {
         if (http.readyState == 4) {
             var response = JSON.parse(http.responseText); 
-            var system_list = response['result'];
+            var system_list = response['result']['servers'];
             
             console.log(system_list);
 

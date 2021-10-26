@@ -16,6 +16,7 @@ from prompt_toolkit.history import FileHistory
 from lib.module_manager import ModuleManager
 import lib.validate
 import lib.prompt_builder as prompt_builder
+from lib.version import FAKERNET_VERSION
 
 import tableprint as tp
 import animation
@@ -204,7 +205,8 @@ class FakerNetConsole():
 
         
         print_formatted_text(HTML('<ansigreen>{}</ansigreen>'.format(ASCIIART)))
-        print_formatted_text(HTML('<skyblue>Internet-in-a-box\n</skyblue>'))
+        print_formatted_text(HTML('<skyblue>[v{}] Internet-in-a-box, \n</skyblue>'.format(self.mm.get_version())))
+
         if self.mm.ip == None:
             print_formatted_text(HTML('<ansigreen>NOTE: In non-server mode!</ansigreen>'))
             if self.mm['init'].init_needed:

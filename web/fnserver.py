@@ -7,8 +7,9 @@ import sqlite3
 import sys
 import logging
 import platform
+import os
 
-from flask import Flask, g, jsonify, current_app, request, render_template
+from flask import Flask, g, jsonify, current_app, request, render_template, send_from_directory
 from flask_httpauth import HTTPBasicAuth
 
 import psutil
@@ -20,7 +21,7 @@ from flask.logging import default_handler
 
 def create_app():
     app = Flask(__name__)
-    app.secret_key = 'aasdfasfd'
+    app.secret_key = os.environ['FLASK_KEY']
 
     with app.app_context():
         current_app.db = sqlite3.connect('fakernet.db')
@@ -49,7 +50,6 @@ def create_app():
         if error is not None:
             print(error)
             app.logger.error(error)
-            sys.exit(1)
         
         app.logger.info("Server started")
 
@@ -69,6 +69,9 @@ def verify_password(username, password):
         # app.logger.warning("User %s logged in successfully", username)
         return username
 
+@app.route('/apidoc/<path>')
+def download_file(path):
+    return send_from_directory('swagger', path)
 
 @app.route('/')
 @auth.login_required
@@ -83,7 +86,7 @@ def authenticate():
 def status():
     return render_template('status.html', version=FAKERNET_VERSION)
 
-@app.route('/system_data')
+@app.route('/api/v1/_system_data')
 @auth.login_required
 def status_data():
     system_info = "{} - {} {}".format(platform.node(), platform.system(), platform.release())
@@ -125,8 +128,13 @@ def run_command(module_name, function):
             return jsonify({"ok": False, "error": error})
     else:
         args = {}
-        for item in request.form:
-            args[item] = request.form[item]
+        json_data = request.get_json()
+        if json_data is not None:
+            for item in json_data:
+                args[item] = json_data[item]
+        else:
+            for item in request.form:
+                args[item] = request.form[item]
 
         app.logger.info("%s called %s.%s, args=%s", request.remote_addr, module_name, function, str(args))
 
@@ -140,6 +148,16 @@ def run_command(module_name, function):
             return jsonify({"ok": False, "error": error})
     
     return jsonify({"ok": True})
+
+@app.route('/api/v1/_version')
+@auth.login_required
+def version():
+    return jsonify({
+        "ok": True,
+        "result": {
+            "version": FAKERNET_VERSION
+        }
+    })
 
 @app.route('/api/v1/_modules/list', methods = ['GET'])
 @auth.login_required
@@ -166,7 +184,9 @@ def list_servers():
         })
     return jsonify({
         "ok": True,
-        "result": server_list
+        "result": {
+            "servers": server_list
+        }
     })
 
 @app.route('/api/v1/_servers/save_state/<state_name>', methods = ['GET'])
@@ -206,7 +226,9 @@ def list_users():
         })
     return jsonify({
         "ok": True,
-        "result": user_list
+        "result": {
+            "users": user_list
+        }
     })
 
 @app.route('/api/v1/_users/add', methods = ['POST'])
@@ -234,7 +256,9 @@ def add_user():
         })
     return jsonify({
         "ok": True,
-        "result": result
+        "result": {
+            "success": result
+        }
     })
 
 if __name__== '__main__':

@@ -1,4 +1,8 @@
 #!/bin/sh
 . ./venv/bin/activate
+if [ ! -f .flask_key ]; then
+    openssl rand -hex 20 > .flask_key
+fi
+export FLASK_KEY=`cat .flask_key`
 # ./venv/bin/gunicorn fnserver:app --bind 127.0.0.1:5050 --access-logfile ./logs/fakernet-access.log
 ./venv/bin/gunicorn web.fnserver:app --certfile=cert.pem --keyfile=key.pem --bind 0.0.0.0:5051 --access-logfile ./logs/fakernet-access.log

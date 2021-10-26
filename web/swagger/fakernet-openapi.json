@@ -1,0 +1,479 @@
+{
+    "openapi": "3.0.1",
+    "info": {
+      "title": "FakerNet Web API",
+      "description": "API for FakerNet server",
+      "termsOfService": "",
+      "contact": {
+        "name": "",
+        "url": "",
+        "email": "jacob@j2h2.com"
+      },
+      "license": {
+        "name": "MPL 2.0",
+        "url": "https://mozilla.org/MPL/2.0/"
+      },
+      "version": "1.0.0"
+    },
+    "servers": [
+      {
+        "url": "/api/v1",
+        "description": "Local server"
+      }
+    ],
+    "paths": {
+      "/_version": {
+        "get": {
+          "summary": "Get version of the server",
+          "operationId": "version",
+          "parameters": [],
+          "responses": {
+            "200": {
+              "description": "Version info",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/Result"
+                  },
+                  "example": {
+                    "ok": true,
+                    "result": {
+                      "version": "0.6.0"
+                    }
+                  }
+                }
+              }
+            },
+            "default": {
+              "description": "An error",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/Error"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "/_system_data": {
+        "get": {
+          "summary": "Get system statistics",
+          "responses": {
+            "200": {
+              "description": "System info and statistics",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/Result"
+                  },
+                  "example": {
+                    "ok": true,
+                    "result": {
+                      "system": "Linux",
+                      "memory_used": 800,
+                      "memory_total": 90000,
+                      "cpu_percent": 10,
+                      "disk_used": 7978,
+                      "disk_total": 80000
+                    }
+                  }
+                }
+              }
+            },
+            "default": {
+              "description": "An error",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/Error"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "/_modules/list": {
+        "get": {
+          "summary": "List available FakerNet modules",
+          "responses": {
+            "200": {
+              "description": "Map of available FakerNet modules",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/Result"
+                  },
+                  "example": {
+                    "ok": true,
+                    "result": {
+                      "dns": {
+                        "add_forwarder": {
+                          "_desc": "Add forwarder to DNS server",
+                          "id": "INTEGER",
+                          "ip_addr": "IP_ADDR"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            },
+            "default": {
+              "description": "An error",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/Error"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "/_users/list": {
+        "get": {
+          "summary": "List API users",
+          "responses": {
+            "200": {
+              "description": "List API users",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/Result"
+                  },
+                  "example": {
+                    "ok": true,
+                    "result": {
+                      "servers": [
+                        [
+                          "dns",
+                          1,
+                          "172.16.3.2",
+                          "test_dns",
+                          "running"
+                        ]
+                      ]
+                    }
+                  }
+                }
+              }
+            },
+            "default": {
+              "description": "An error",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/Error"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "/_users/add": {
+        "post": {
+          "summary": "Add API user",
+          "requestBody": {
+            "required": true,
+            "content": {
+              "application/x-www-form-urlencoded": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "username",
+                    "password"
+                  ],
+                  "properties": {
+                    "username": {
+                      "type": "string",
+                      "description": "Username of the user"
+                    },
+                    "password": {
+                      "type": "string",
+                      "format": "password"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "responses": {
+            "200": {
+              "description": "Result of user add",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/Result"
+                  },
+                  "example": {
+                    "ok": true,
+                    "result": {
+                      "success": true
+                    }
+                  }
+                }
+              }
+            },
+            "default": {
+              "description": "An error",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/Error"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "/_servers/list_all": {
+        "get": {
+          "summary": "List running FakerNet servers and server info, like IPs and modules",
+          "responses": {
+            "200": {
+              "description": "List of running services",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/Result"
+                  },
+                  "example": {
+                    "ok": true,
+                    "result": {
+                      "servers": [
+                        [
+                          "dns",
+                          1,
+                          "172.16.3.2",
+                          "test_dns",
+                          "running"
+                        ]
+                      ]
+                    }
+                  }
+                }
+              }
+            },
+            "default": {
+              "description": "An error",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/Error"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "/_servers/restore_state/{state_name}": {
+        "get": {
+          "summary": "Restore the state of the servers to that of the named state",
+          "parameters": [
+            {
+              "in": "path",
+              "name": "state_name",
+              "required": true,
+              "schema": {
+                "type": "string"
+              },
+              "description": "Name of the state"
+            }
+          ],
+          "responses": {
+            "200": {
+              "description": "Result of the state restore",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/Result"
+                  },
+                  "example": {
+                    "ok": true,
+                    "result": {
+                      "success": true
+                    }
+                  }
+                }
+              }
+            },
+            "default": {
+              "description": "An error",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/Error"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "/_servers/save_state/{state_name}": {
+        "get": {
+          "summary": "Save the state of the servers to that of the named state",
+          "parameters": [
+            {
+              "in": "path",
+              "name": "state_name",
+              "required": true,
+              "schema": {
+                "type": "string"
+              },
+              "description": "Name of the state"
+            }
+          ],
+          "responses": {
+            "200": {
+              "description": "Result of save state",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/Result"
+                  },
+                  "example": {
+                    "ok": true,
+                    "result": {
+                      "success": true
+                    }
+                  }
+                }
+              }
+            },
+            "default": {
+              "description": "An error",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/Error"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "/{module_name}/run/{function}": {
+        "post": {
+          "summary": "Run a FakerNet function (Supports both JSON and form data)",
+          "parameters": [
+            {
+              "in": "path",
+              "name": "module_name",
+              "required": true,
+              "schema": {
+                "type": "string"
+              },
+              "description": "Module to use"
+            },
+            {
+              "in": "path",
+              "name": "function",
+              "required": true,
+              "schema": {
+                "type": "string"
+              },
+              "description": "Function to run"
+            }
+          ],
+          "requestBody": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FuncArg"
+                }
+              }
+            }
+          },
+          "responses": {
+            "200": {
+              "description": "Result of save state",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/Result"
+                  },
+                  "example": {
+                    "ok": true,
+                    "result": {
+                      "success": true
+                    }
+                  }
+                }
+              }
+            },
+            "default": {
+              "description": "An error",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/Error"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "components": {
+      "securitySchemes": {
+        "main_auth": {
+          "type": "http",
+          "scheme": "basic"
+        }
+      },
+      "schemas": {
+        "FuncArg": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
+        "Result": {
+          "type": "object",
+          "required": [
+            "ok",
+            "result"
+          ],
+          "properties": {
+            "ok": {
+              "type": "boolean"
+            },
+            "result": {
+              "type": "object"
+            }
+          }
+        },
+        "Error": {
+          "type": "object",
+          "required": [
+            "ok",
+            "error"
+          ],
+          "properties": {
+            "ok": {
+              "type": "boolean",
+              "default": false
+            },
+            "error": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    },
+    "security": [
+      {
+        "main_auth": []
+      }
+    ]
+  }

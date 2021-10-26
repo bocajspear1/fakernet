@@ -10,5 +10,7 @@ saves/*
 logs/*.log
 history.json
 .fnhistory
+.flask_key
 *.pem
 *.key
+node_modules/*

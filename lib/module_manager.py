@@ -10,6 +10,8 @@ import logging
 import hashlib
 from threading import RLock
 
+from lib.version import FAKERNET_VERSION
+
 PORT = 5050
 PORT_HTTPS = 5051
 SAVES_DIR = "./saves"
@@ -133,7 +135,6 @@ class ModuleManager():
     def _get_url(self):
         start = "{}:{}/api/v1".format(self.ip, self._port)
         if not self._https:
-            
             return "http://" + start
         else:
             return "https://" + start
@@ -233,6 +234,27 @@ class ModuleManager():
                 return resp_data['error'], None 
             else:
                 return None, resp_data['result']
+
+    def get_version(self):
+        if not self.ip:
+            return FAKERNET_VERSION
+        else:
+            try:
+                resp = self._r.get(self._get_url() + "/_version", verify=not self._https_ignore)
+                if resp.status_code != 200:
+                    return "Got error code {} from server".format(resp.status_code)
+                rmodule_data = resp.json()
+                if not rmodule_data['ok']:
+                    return "Got error from server: {}".format(rmodule_data['error'])
+                return rmodule_data['result']['version']
+                
+            except self._r.exceptions.SSLError:
+                return "Could not connect to {}:{} via HTTPS".format(self.ip, self._port)
+            except self._r.exceptions.ConnectionError:
+                return "Failed to connect to server at {}:{}".format(self.ip, self._port)
+
+            self.logger.info("Remote ModuleManager loaded successfully")
+            return None
 
     def load(self):
         if not self.ip:
@@ -352,7 +374,7 @@ class ModuleManager():
             restore_path = "{}/{}.json".format(SAVES_DIR, save_name)
 
             if not os.path.exists(restore_path):
-                return "Could not find the restore file of that name", None
+                return None, True
 
             restore_file = open(restore_path, "r")
             restore_raw = restore_file.read()
