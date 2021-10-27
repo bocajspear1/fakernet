@@ -134,7 +134,7 @@
           }
         }
       },
-      "/_users/list": {
+      "/_users": {
         "get": {
           "summary": "List API users",
           "responses": {
@@ -173,11 +173,9 @@
               }
             }
           }
-        }
-      },
-      "/_users/add": {
-        "post": {
-          "summary": "Add API user",
+        },
+        "put": {
+          "summary": "Add API user (Can only be done from local system)",
           "requestBody": {
             "required": true,
             "content": {
@@ -213,7 +211,57 @@
                   "example": {
                     "ok": true,
                     "result": {
-                      "success": true
+                      "status": true
+                    }
+                  }
+                }
+              }
+            },
+            "default": {
+              "description": "An error",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/Error"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "delete": {
+          "summary": "Delete API user (Can only be done from local system)",
+          "requestBody": {
+            "required": true,
+            "content": {
+              "application/x-www-form-urlencoded": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "username"
+                  ],
+                  "properties": {
+                    "username": {
+                      "type": "string",
+                      "description": "Username of the user"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "responses": {
+            "200": {
+              "description": "Result of user delete",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/Result"
+                  },
+                  "example": {
+                    "ok": true,
+                    "result": {
+                      "status": true
                     }
                   }
                 }
@@ -395,7 +443,7 @@
           },
           "responses": {
             "200": {
-              "description": "Result of save state",
+              "description": "Output of the module function",
               "content": {
                 "application/json": {
                   "schema": {
@@ -404,7 +452,7 @@
                   "example": {
                     "ok": true,
                     "result": {
-                      "success": true
+                      "output": true
                     }
                   }
                 }
