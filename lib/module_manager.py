@@ -64,17 +64,17 @@ class RemoteModule():
         self._https_ignore = https_ignore
 
     def run(self, func, **kwargs):
-        resp = self._r.post(self._url + "/" + self.__SHORTNAME__ + "/run/" + func, data=kwargs, verify=not self._https_ignore)
+        resp = self.mm.http_post(self._url + "/" + self.__SHORTNAME__ + "/run/" + func, kwargs)
         self.mm.logger.info("Remote called: %s.%s, args=%s", self.__SHORTNAME__, func, str(kwargs))
         resp_data = resp.json()
         if not resp_data['ok']:
             return resp_data['error'], None 
         else:
-            return None, resp_data['result']
+            return None, resp_data['result']['output']
 
 class ModuleManager():
 
-    def __init__(self, ip=None, db=None, https=False, https_ignore=False):
+    def __init__(self, ip=None, db=None, https=False, https_ignore=False, user=None, password=None):
 
         self._user = ""
         
@@ -116,6 +116,8 @@ class ModuleManager():
                 self._port = PORT
             self._https_ignore = https_ignore
             self._r = requests
+            self._user = user 
+            self._password = password
             self.history_writer = None
 
         
@@ -138,6 +140,30 @@ class ModuleManager():
             return "http://" + start
         else:
             return "https://" + start
+
+    def http_get(self, url):
+        if self._user is None:
+            return self._r.get(url, verify=not self._https_ignore)
+        else:
+            return self._r.get(url, verify=not self._https_ignore, auth=(self._user, self._password))
+
+    def http_post(self, url, data):
+        if self._user is None:
+            return self._r.post(url, verify=not self._https_ignore, data=data)
+        else:
+            return self._r.post(url, verify=not self._https_ignore, auth=(self._user, self._password), data=data)
+
+    def http_put(self, url, data):
+        if self._user is None:
+            return self._r.put(url, verify=not self._https_ignore, data=data)
+        else:
+            return self._r.put(url, verify=not self._https_ignore, auth=(self._user, self._password), data=data)
+
+    def http_delete(self, url, data):
+        if self._user is None:
+            return self._r.delete(url, verify=not self._https_ignore, data=data)
+        else:
+            return self._r.delete(url, verify=not self._https_ignore, auth=(self._user, self._password), data=data)
 
     def _hash_password(self, password, salt=None):
         salt_hex = salt
@@ -183,13 +209,13 @@ class ModuleManager():
                     new_list.append(user[0])
                 return None, new_list
         else:
-            resp = self._r.get(self._get_url() + "/_users/list", verify=not self._https_ignore)
+            resp = self.http_get(self._get_url() + "/_users")
 
             resp_data = resp.json()
             if not resp_data['ok']:
                 return resp_data['error'], None 
             else:
-                return None, resp_data['result']
+                return None, resp_data['result']['users']
 
     def add_user(self, username, password):
         if not self.ip:
@@ -206,7 +232,7 @@ class ModuleManager():
                 self.db.commit()
                 return None, True
         else:
-            resp = self._r.post(self._get_url() + "/_users/add", verify=not self._https_ignore, data={
+            resp = self.http_put(self._get_url() + "/_users", {
                 "username": username,
                 "password": password
             })
@@ -215,7 +241,7 @@ class ModuleManager():
             if not resp_data['ok']:
                 return resp_data['error'], None 
             else:
-                return None, resp_data['result']
+                return None, resp_data['result']['status']
     
     def remove_user(self, username):
         if not self.ip:
@@ -223,9 +249,9 @@ class ModuleManager():
                 dbc = self.db.cursor()
                 dbc.execute("DELETE FROM fakernet_users WHERE username=?", (username,))
                 self.db.commit()
-
+                return None, True
         else:
-            resp = self._r.post(self._get_url() + "/_users/delete", verify=not self._https_ignore, data={
+            resp = self.http_delete(self._get_url() + "/_users", {
                 "username": username
             })
 
@@ -233,14 +259,14 @@ class ModuleManager():
             if not resp_data['ok']:
                 return resp_data['error'], None 
             else:
-                return None, resp_data['result']
+                return None, resp_data['result']['status']
 
     def get_version(self):
         if not self.ip:
             return FAKERNET_VERSION
         else:
             try:
-                resp = self._r.get(self._get_url() + "/_version", verify=not self._https_ignore)
+                resp = self.http_get(self._get_url() + "/_version")
                 if resp.status_code != 200:
                     return "Got error code {} from server".format(resp.status_code)
                 rmodule_data = resp.json()
@@ -279,7 +305,7 @@ class ModuleManager():
             return None
         else:
             try:
-                resp = self._r.get(self._get_url() + "/_modules/list", verify=not self._https_ignore)
+                resp = self.http_get(self._get_url() + "/_modules/list")
                 if resp.status_code != 200:
                     return "Got error code {} from server".format(resp.status_code)
                 rmodule_data = resp.json()
@@ -313,9 +339,9 @@ class ModuleManager():
                 full_list += module.get_list()
             return None, full_list
         else:
-            resp = self._r.get(self._get_url() + "/_servers/list_all", verify=not self._https_ignore).json()
+            resp = self.http_get(self._get_url() + "/_servers/list_all").json()
             if resp['ok']:
-                return None, resp['result']
+                return None, resp['result']['servers']
             else:
                 return resp['error'], None
 
@@ -354,7 +380,7 @@ class ModuleManager():
             return None, True
         else:
             try:
-                resp = self._r.get(self._get_url() + "/_servers/save_state/{}".format(save_name), verify=not self._https_ignore)
+                resp = self.http_get(self._get_url() + "/_servers/save_state/{}".format(save_name))
                 if resp.status_code != 200:
                     return "Got error code {} from server".format(resp.status_code)
                 rmodule_data = resp.json()
@@ -391,7 +417,7 @@ class ModuleManager():
             return None, True
         else:
             try:
-                resp = self._r.get(self._get_url() + "/_servers/restore_state/{}".format(save_name), verify=not self._https_ignore)
+                resp = self.http_get(self._get_url() + "/_servers/restore_state/{}".format(save_name))
                 if resp.status_code != 200:
                     return "Got error code {} from server".format(resp.status_code)
                 rmodule_data = resp.json()

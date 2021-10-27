@@ -9,7 +9,7 @@ function update_system_info() {
 
     http.onreadystatechange = (e) => {
         if (http.readyState == 4) {
-            system_data = JSON.parse(http.responseText); 
+            system_data = JSON.parse(http.responseText)['result']; 
 
             document.getElementById("system_name").textContent = system_data['system'];
             document.getElementById("cpu_percent").setAttribute("value", system_data['cpu_percent']);
@@ -58,8 +58,6 @@ function update_server_list() {
         if (http.readyState == 4) {
             var response = JSON.parse(http.responseText); 
             var system_list = response['result']['servers'];
-            
-            console.log(system_list);
 
             for (var i = 0; i < system_list.length; i++) {
                 var id = system_list[i][0] + "-" + system_list[i][1];

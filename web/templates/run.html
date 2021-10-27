@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <title>FakerNet Run Modules</title>
+        <link rel="stylesheet" href="static/mini-default.min.css">
+        <style>
+
+        </style>
+    </head>
+    <body>
+        <header>
+            <a href="/" class="logo">FakerNet v{{ version }}</a>
+            <a href="/status" class="button">Status</a>
+            <a href="/run" class="button">Run</a>
+            <a href="/apidoc/index.html" class="button">API Docs</a>
+        </header>
+        <div class="container">
+            <div class="row">
+                <div class="col-sm-12">
+                    <div class="input-group">
+                        <label for="module">Module</label>
+                        <select id="module-select">
+                            <option value="">Select Module</option>
+                        </select>
+                        <label for="module">Function</label>
+                        <select disabled id="function-select">
+                            <option value="">Select Function</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+            <div class="row">
+                <div class="col-sm-12">
+                    <p id="func-desc"></p>
+                    <fieldset id="param-inputs">
+                        
+                    </fieldset>
+                    <button id="submit-button" disabled>Submit</button>
+                </div>
+            </div>
+            <div class="row">
+                <div class="col-sm-12">
+                    <div class="spinner hidden" id="wait-spinner"></div>
+                    <p><mark class="inline-block secondary hidden" id="error-out"></mark></p>
+                    <pre id="output">
+
+                    </pre>
+                    
+                </div>
+            </div>  
+            
+        </div>
+        <script src="static/run.js"></script>
+    </body>
+</html>

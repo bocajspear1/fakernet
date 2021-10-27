@@ -18,6 +18,7 @@ FakerNet is a framework to quickly build internet-like services rapidly for home
    installation
    using-fakernet
    cli-usage
+   server
    tutorials
    modules
    reference

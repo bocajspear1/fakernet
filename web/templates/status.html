@@ -9,11 +9,25 @@
     </head>
     <body>
         <header>
-            <div class="logo">FakerNet v{{ version }}</div>
+            <a href="/" class="logo">FakerNet v{{ version }}</a>
+            <a href="/status" class="button">Status</a>
+            <a href="/run" class="button">Run</a>
+            <a href="/apidoc/index.html" class="button">API Docs</a>
         </header>
         <div class="container">
             <div class="row">
-                <div class="col-sm-5">
+                <div class="col-sm-7">
+                    <h2 id="system_name">&nbsp;</h2>
+                    <h3>CPU Usage</h3>
+                    <progress id="cpu_percent" value="0" max="100"></progress>
+                    <h3>Memory Usage <span id="mem_details"></span></h3>
+                    <progress id="mem_percent" value="0" max="100"></progress>
+                    <h3>Disk Usage <span id="disk_details"></span></h3>
+                    <progress id="disk_percent" value="0" max="100"></progress>
+                </div>
+            </div>
+            <div class="row">
+                <div class="col-sm-12">
                     <table>
                         <thead>
                             <tr>
@@ -28,17 +42,9 @@
 
                         </tbody>
                     </table>
-                </div>  
-                <div class="col-sm-7">
-                    <h2 id="system_name">&nbsp;</h2>
-                    <h3>CPU Usage</h3>
-                    <progress id="cpu_percent" value="0" max="100"></progress>
-                    <h3>Memory Usage <span id="mem_details"></span></h3>
-                    <progress id="mem_percent" value="0" max="100"></progress>
-                    <h3>Disk Usage <span id="disk_details"></span></h3>
-                    <progress id="disk_percent" value="0" max="100"></progress>
                 </div>
-            </div>
+            </div>  
+            
         </div>
         <script src="static/status.js"></script>
     </body>

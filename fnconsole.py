@@ -66,7 +66,7 @@ class CommandCompleter(Completer):
         # 'global',
         # 'uglobal',
         'exit',
-        'stats',
+        # 'stats',
         'list_all',
         # 'list_running',
         'save',
@@ -167,7 +167,16 @@ class FakerNetConsole():
         error = self.mm.load()
         wait.stop()
         if error is not None:
-            self.mm = ModuleManager(ip=ip, https=True, https_ignore=True)
+            username = ""
+            password = ""
+            if ip != "127.0.0.1":
+                username = input("username> ")
+                password = getpass(prompt="password> ")
+
+            if username != "":
+                self.mm = ModuleManager(ip=ip, https=True, https_ignore=True, user=username, password=password)
+            else:
+                self.mm = ModuleManager(ip=ip, https=True, https_ignore=True)
             error = self.mm.load()
             wait.stop()
             if error is not None:
@@ -338,6 +347,13 @@ class FakerNetConsole():
             error, users = self.mm.list_users()
             for user in users:
                 print(" * " + user)
+        elif command == "userdel":
+            username = input("username> ")
+            error, users = self.mm.remove_user(username)
+            if error is None:
+                print_formatted_text(HTML('<ansigreen>User Deleted</ansigreen>'))
+            else:
+                print_formatted_text(HTML('<ansired>Delete User Error: "{}"</ansired>'.format(error)))
         elif command == "useradd":
             username = input("username> ")
             ok = False
@@ -349,7 +365,11 @@ class FakerNetConsole():
                 else:
                     ok = True
             
-            self.mm.add_user(username, password1)
+            error, status = self.mm.add_user(username, password1)
+            if error is None:
+                print_formatted_text(HTML('<ansigreen>User Added</ansigreen>'))
+            else:
+                print_formatted_text(HTML('<ansired>Add User Error: "{}"</ansired>'.format(error)))
             
         elif command == "list_all":
             error, server_list = self.mm.list_all_servers()

@@ -76,15 +76,17 @@ def download_file(path):
 @app.route('/')
 @auth.login_required
 def authenticate():
-    return {
-        "ok": True,
-        "result": 'g.csrf_token'
-    }
+    return render_template('index.html', version=FAKERNET_VERSION)
 
 @app.route('/status')
 @auth.login_required
 def status():
     return render_template('status.html', version=FAKERNET_VERSION)
+
+@app.route('/run')
+@auth.login_required
+def run_module():
+    return render_template('run.html', version=FAKERNET_VERSION)
 
 @app.route('/api/v1/_system_data')
 @auth.login_required
@@ -93,12 +95,15 @@ def status_data():
     memory = psutil.virtual_memory() 
     main_disk = psutil.disk_usage('/')
     return {
-        "system": system_info,
-        "memory_used": memory.used,
-        "memory_total": memory.total,
-        "cpu_percent": psutil.cpu_percent(interval=.5),
-        "disk_used": main_disk.used,
-        "disk_total": main_disk.total
+        "ok": True,
+        "result": {
+            "system": system_info,
+            "memory_used": memory.used,
+            "memory_total": memory.total,
+            "cpu_percent": psutil.cpu_percent(interval=.5),
+            "disk_used": main_disk.used,
+            "disk_total": main_disk.total
+        }
     }
 
 @app.route('/api/v1/<module_name>/run/<function>', methods = ['POST'])
@@ -122,7 +127,9 @@ def run_command(module_name, function):
         if error is None:
             return jsonify({
                 "ok": True,
-                "result": result
+                "result": {
+                    "output": result
+                }
             }) 
         else:
             return jsonify({"ok": False, "error": error})
@@ -142,7 +149,9 @@ def run_command(module_name, function):
         if error is None:
             return jsonify({
                 "ok": True,
-                "result": result
+                "result": {
+                    "output": result
+                }
             }) 
         else:
             return jsonify({"ok": False, "error": error})
@@ -201,7 +210,9 @@ def save_state(state_name):
         })
     return jsonify({
         "ok": True,
-        "result": status
+        "result": {
+            "status": status
+        } 
     })
 
 @app.route('/api/v1/_servers/restore_state/<state_name>', methods = ['GET'])
@@ -211,55 +222,73 @@ def restore_state(state_name):
     current_app.mm.restore_state(save_name=state_name)
     return jsonify({
         "ok": True,
-        "result": True
-    })
-
-@app.route('/api/v1/_users/list', methods = ['GET'])
-@auth.login_required
-def list_users():
-
-    error, user_list = current_app.mm.list_users()
-    if error is not None:
-        return jsonify({
-            "ok": False,
-            "error": error
-        })
-    return jsonify({
-        "ok": True,
         "result": {
-            "users": user_list
-        }
+            "status": True
+        } 
     })
 
-@app.route('/api/v1/_users/add', methods = ['POST'])
+
+@app.route('/api/v1/_users', methods = ['PUT', 'GET', 'DELETE'])
 @auth.login_required
-def add_user():
+def user_manage():
 
-    if not "username" in request.form or not "password" in request.form:
+    if request.remote_addr != "127.0.0.1" and request.method != 'GET':
+        app.logger.error("Remote system attempted to modify user: %s", request.remote_addr)
         return jsonify({
             "ok": False,
-            "error": "'username' and 'password' are required"
+            "error": "Users can only be modified locally"
         })
 
-    if request.remote_addr != "127.0.0.1":
-        app.logger.error("Remote system attempted to add user: %s", request.remote_addr)
+    if request.method == 'GET':
+        error, user_list = current_app.mm.list_users()
+        if error is not None:
+            return jsonify({
+                "ok": False,
+                "error": error
+            })
         return jsonify({
-            "ok": False,
-            "error": "Users can only be added locally"
+            "ok": True,
+            "result": {
+                "users": user_list
+            }
         })
-
-    error, result = current_app.mm.add_user(request.form['username'], request.form['password'])
-    if error is not None:
+    elif request.method == 'PUT':
+        if not "username" in request.form or not "password" in request.form:
+            return jsonify({
+                "ok": False,
+                "error": "'username' and 'password' are required"
+            })
+        error, result = current_app.mm.add_user(request.form['username'], request.form['password'])
+        if error is not None:
+            return jsonify({
+                "ok": False,
+                "error": error
+            })
         return jsonify({
-            "ok": False,
-            "error": error
+            "ok": True,
+            "result": {
+                "status": result
+            }
         })
-    return jsonify({
-        "ok": True,
-        "result": {
-            "success": result
-        }
-    })
+    elif request.method == 'DELETE':
+        if not "username" in request.form:
+            return jsonify({
+                "ok": False,
+                "error": "'username' are required"
+            })
+        error, result = current_app.mm.remove_user(request.form['username'])
+        if error is not None:
+            return jsonify({
+                "ok": False,
+                "error": error
+            })
+        return jsonify({
+            "ok": True,
+            "result": {
+                "status": result
+            }
+        })
+    
 
 if __name__== '__main__':
     app.run()

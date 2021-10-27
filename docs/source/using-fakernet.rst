@@ -30,3 +30,7 @@ Modules and their functions can be run through two main ways:
 2. A REST API server: The functions are called through a REST API server, usually running as a service. Good for more permanent setups and remote systems.
 
 To access either of these methods is most commonly through the FakerNet console. See :ref:`cli-usage`. (You could also call the REST API directly)
+
+
+Saving and Restoring
+^^^^^^^^^^^^^^^^^^^^^

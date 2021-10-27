@@ -24,6 +24,8 @@ To connect to a remote system:
 
     ./fnconsole -s <SERVER IP>
 
+You will need to login with a username and password. See :ref:`server` for details on server setup and logins.
+
 For local API servers, the console will automatically attempt to connect to a local server on port 5051, so you will not need the ``-s`` parameter.
 
 Using the Console
