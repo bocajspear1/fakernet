@@ -15,6 +15,9 @@
 # sys.path.insert(0, os.path.abspath('.'))
 
 
+# Header order: = ^ - "
+
+
 import sphinx_rtd_theme
 
 # -- Project information -----------------------------------------------------
@@ -24,7 +27,7 @@ copyright = '2021, Jacob Hartman'
 author = 'Jacob Hartman'
 
 # The full version, including alpha/beta/rc tags
-release = '0.6.0'
+release = '0.7.0'
 
 
 # -- General configuration ---------------------------------------------------

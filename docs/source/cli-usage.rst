@@ -44,12 +44,12 @@ Console Modes
 The console operates in two primary level, **main** level and **function** level. FakerNet is built around functions provided by modules, you will spend most of your time running in **function** mode. Using the console, you will call module functions to perform certain actions, such as creating, stop, and starting servers.
 
 Main Mode
-""""""""""
+-----------
 
 Main level is the top level, and the mode you start in. This mode performs FakerNet-wide operations as well as authentication operations. You can run the following commands:
 
 * ``run <MODULE> <FUNCTION>``: This is used to call a function, and given a module and function name, will run the function, or put you into function mode.
-* ``list_servers``: This lists all servers running from all modules.
+* ``list_all``: This lists all servers running from all modules.
 * ``exit``: This exits the console.
 * ``save``: This saves the current state of up and down servers. An option name can be set afterwards to name the state. The default name is ``default``.
 * ``restore``: This restores from a state save. An option name can be set afterwards to set the state to load. The default name is ``default``.
@@ -58,7 +58,7 @@ Main level is the top level, and the mode you start in. This mode performs Faker
 * ``userdel``: Remove users from API authentication.
 
 Function Mode
-""""""""""""""
+---------------
 
 This is where most of the magic happens. FakerNet breaks up functionality into modules. This allows modules to call other modules so we aren't reimplementing stuff unnecessarily. The console provides access to the functions from these modules, so we have control to create and destroy servers, configure them, etc.
 

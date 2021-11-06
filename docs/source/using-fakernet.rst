@@ -27,10 +27,20 @@ Accessing Functions
 Modules and their functions can be run through two main ways:
 
 1. Locally: The functions are directly called locally, no server is involved. Good for smaller setups and testing.
-2. A REST API server: The functions are called through a REST API server, usually running as a service. Good for more permanent setups and remote systems.
+2. A REST API server: The functions are called through a REST API server, usually running as a service. Good for more permanent setups and remote systems. (See :ref:`server`)
 
 To access either of these methods is most commonly through the FakerNet console. See :ref:`cli-usage`. (You could also call the REST API directly)
 
 
 Saving and Restoring
 ^^^^^^^^^^^^^^^^^^^^^
+
+FakerNet supports saving and restoring running servers, creating a state of what is up and what is down. This can be used with the ``save`` and ``restore`` commands in the CLI. Without any arguments, the save state is named ``default``, and is stored in ``saves/default.json``. This will be the state loaded when the FakerNet server starts. Use these commands with a string to give the state a name or restore a named state. 
+
+
+..  code-block::
+
+    save example 
+    restore example 
+
+The named saves are stored in ``saves/<NAME>.json``

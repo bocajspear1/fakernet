@@ -51,7 +51,7 @@ def create_app():
             print(error)
             app.logger.error(error)
         
-        app.logger.info("Server started")
+        app.logger.info("Server %s started", FAKERNET_VERSION)
 
     return app
 
