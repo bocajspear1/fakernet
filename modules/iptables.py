@@ -287,8 +287,6 @@ class Iptables(BaseModule):
 
     def restore(self, restore_data):
         pass
-                
-    def get_list(self):
-        pass
+
 
 __MODULE__ = Iptables
