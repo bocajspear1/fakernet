@@ -27,7 +27,7 @@ Delete a DNS server
 ..  csv-table:: Parameters
     :header: "Name", "Type"
 
-    "id","IP"
+    "id","INTEGER"
 
 add_server
 ^^^^^^^^^^
@@ -64,7 +64,7 @@ Add a record to a DNS server, detecting server and zone
     "direction","['fwd', 'rev']"
     "type","TEXT"
     "fqdn","TEXT"
-    "value","TEXT"
+    "value","ADVTEXT"
     "autocreate","BOOLEAN"
 
 smart_remove_record
@@ -78,7 +78,7 @@ Add a record to a DNS server, detecting server and zone
     "direction","['fwd', 'rev']"
     "type","TEXT"
     "fqdn","TEXT"
-    "value","TEXT"
+    "value","ADVTEXT"
 
 add_record
 ^^^^^^^^^^
@@ -93,7 +93,7 @@ Add a record to a DNS server
     "direction","['fwd', 'rev']"
     "type","TEXT"
     "name","TEXT"
-    "value","TEXT"
+    "value","ADVTEXT"
 
 remove_record
 ^^^^^^^^^^^^^
@@ -108,7 +108,7 @@ Remove a record from a DNS server
     "direction","['fwd', 'rev']"
     "type","TEXT"
     "name","TEXT"
-    "value","TEXT"
+    "value","ADVTEXT"
 
 add_host
 ^^^^^^^^

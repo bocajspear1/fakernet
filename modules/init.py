@@ -51,6 +51,12 @@ class FakernetInit(BaseModule):
             except subprocess.CalledProcessError:
                 errors.append("Cannot access Quagga. Add this user to the `quaggavty` group and re-login")
 
+            try:
+                subprocess.check_output(["/usr/bin/sudo", "-n", "/sbin/iptables", "-P", "FORWARD", "ACCEPT"], stderr=subprocess.DEVNULL)     
+            except subprocess.CalledProcessError:
+                errors.append("Could not enable ACCEPT on FORWARD table")
+
+
             if len(errors) > 0:
                 return "\n".join(errors), None
             else:

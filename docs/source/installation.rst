@@ -145,16 +145,7 @@ Create a virtualenv and activate it, then install dependencies:
 Firewall Rules
 ^^^^^^^^^^^^^^^^^
 
-Docker sets the default iptables forward rule to drop. To ensure external access to FakerNet services, add the following rules. Use something like ``iptables-persistent`` to manage your iptables and have them start on boot.
-
-..  code-block:: bash
-
-    sudo iptables -I FORWARD -i <INTERNAL_INTERFACE> -j ACCEPT
-    sudo iptables -I FORWARD -o <INTERNAL_INTERFACE> -j ACCEPT
-    sudo iptables -I FORWARD -i <EXTERNAL_INTERFACE> -j ACCEPT
-    sudo iptables -I FORWARD -o <EXTERNAL_INTERFACE> -j ACCEPT
-    # If you want NAT for services to have external Internet access
-    sudo iptables -t nat -I POSTROUTING 1 -o <EXTERNAL_INTERFACE> -j MASQUERADE
+Docker sets the default iptables forward rule to drop. FakerNet will set the ``FORWARD`` table to ``ACCEPT`` on start to fix this.
 
 .. _build-images:
 

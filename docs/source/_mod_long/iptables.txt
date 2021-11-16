@@ -1,0 +1,13 @@
+This module allows management of iptables rules from FakerNet. These rules will always be added when FakerNet starts. This makes it useful for setting up things like NAT. 
+
+..  warning::
+
+    Rules are always added at the top. Use the ``list_order`` to get a better idea of the order the rules will be added.
+
+.. warning:: 
+    
+    Rules are not removed when FakerNet stops
+
+.. note::
+
+    ``!`` can be used in ``add_nat_allow`` to do a "not" of the range

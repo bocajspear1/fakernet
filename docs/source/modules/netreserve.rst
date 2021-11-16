@@ -31,7 +31,7 @@ Add network allocation
 
     "net_addr","IP_NETWORK"
     "description","TEXT"
-    "switch","TEXT"
+    "switch","SIMPLE_STRING"
 
 add_network
 ^^^^^^^^^^^
@@ -43,7 +43,7 @@ Add network allocation
 
     "net_addr","IP_NETWORK"
     "description","TEXT"
-    "switch","TEXT"
+    "switch","SIMPLE_STRING"
 
 remove_network
 ^^^^^^^^^^^^^^
@@ -73,7 +73,7 @@ Get the switch for a network
 ..  csv-table:: Parameters
     :header: "Name", "Type"
 
-    "switch","TEXT"
+    "switch","SIMPLE_STRING"
 
 get_ip_switch
 ^^^^^^^^^^^^^
@@ -103,5 +103,5 @@ Check if a network is a hop network (behind a hop router) by switch name
 ..  csv-table:: Parameters
     :header: "Name", "Type"
 
-    "switch","TEXT"
+    "switch","SIMPLE_STRING"
 

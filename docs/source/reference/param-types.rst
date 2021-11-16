@@ -11,7 +11,7 @@ The following is a reference of parameter types that are valid in FakerNet param
 
     "``INTEGER``","A simple, non-decimal number", "``1`` ``34``" 
     "``DECIMAL``","A decimal number", "``1.2`` ``88.234``, ``2``" 
-    "``TEXT``","Basic text, limited to letters, numbers, spaces, tabs, and the following: ``.,-_:=/#@``", "``this.dns`` ``hello there``" 
+    "``TEXT``","Basic text, limited to letters, numbers, spaces, tabs, and the following: ``.,-_:=/#@!*``", "``this.dns`` ``hello there``" 
     "``ADVTEXT``","Text with fewer limits, limited to letters, numbers, spaces, tabs, and the following: ``.,-_!@#$%^&*()_+<>?""':|[]{}``. Be much more cautious with this", "``this.dns`` ``hello there``" 
     "``SIMPLE_STRING``","Text limited to letters and numbers", "``this1`` ``hello``" 
     "``IP``","An IP address", "``1.1.1.1`` ``192.168.7.6``" 

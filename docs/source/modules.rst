@@ -13,6 +13,7 @@ The following is the currently available FakerNet modules.
     modules/inspircd
     modules/lxd
     modules/nethop
+    modules/iptables
     modules/pwndrop
     modules/dns
     modules/webdavalpine

@@ -41,17 +41,27 @@ If the FakerNet host is connected to an external network for maintenance and acc
 "Extended" Internet
 ---------------------
 
-If you are using the "side-load" method, this is practically the access already available. When using the gateway method, this can be achieved by adding NAT rules for the external interface. For example, if the external interface is ``ens18``
+If you are using the "side-load" method, this is practically the access already available. When using the gateway method, this can be achieved by adding NAT rules for the external interface, which can be done with the :ref:`module-iptables` module. For example, if the external interface is ``ens18``, and you want to allow all ranges:
 
 ..  code-block::
 
-    iptables -t nat -A POSTROUTING -o ens18 -j MASQUERADE
+    local> run iptables set_external_iface
+    local(iptables.set_external_iface)> set iface ens18
+    local(iptables.set_external_iface)> execute
+    OK
+    local(iptables.set_external_iface)> run iptables add_nat_allow
+    local(iptables.add_nat_allow)> set range *
+    local(iptables.add_nat_allow)> execute
+    OK
 
-If you want only certain networks to be restricted from internet access, you could deny certain ranges, for example, blocking the ``10.10.10.0/24`` network, while allowing others:
+If you want only certain networks to be restricted from internet access, you could limit certain ranges. For example, the following will allow all other ranges except the ``10.88.50.0/24`` network (perhaps that is your internal network connected to lab devices):
 
 ..  code-block::
 
-    iptables -t nat -A POSTROUTING ! -s 10.10.10.0/24 -o ens18 -j MASQUERADE
+    > run iptables add_nat_allow
+    local(iptables.add_nat_allow)> set range !10.88.50.0/24
+    local(iptables.add_nat_allow)> execute
+    OK
 
 A few other things should be kept in mind:
 
@@ -65,10 +75,13 @@ Proxied Internet
 
 This method, only possible when using FakerNet as a gateway, limits internet access to select hosts. This is done by restricting the NAT rules to certain hosts, such as an instance of the ``tinyproxy`` FakerNet module. 
 
-For example, if the ``tinyproxy`` instance is at ``10.10.10.2``, configure it alone be to allowed through NAT:
+For example, if the ``tinyproxy`` instance is at ``10.10.10.2``, configure it alone be to allowed through NAT (given you haven't used the rules above):
 
 ..  code-block::
 
-    iptables -t nat -A POSTROUTING -s 10.10.10.2 -o ens18 -j MASQUERADE
+    > run iptables add_nat_allow
+    local(iptables.add_nat_allow)> set range 10.10.10.2
+    local(iptables.add_nat_allow)> execute
+    OK
 
-You can utilize ``iptables`` to create a wide-range of configurations.
+You can utilize the :ref:`module-iptables` module to create a wide-range of configurations using the ``add_raw`` and ``add_raw_to_table``.

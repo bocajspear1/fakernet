@@ -83,7 +83,7 @@ class BaseModule():
                 if re.fullmatch(r"[- \t,._A-Za-z0-9!@#$%^&*()_+<>?\"':|\[\]{}]+", item_val) == None and item_val.strip() != "":
                     return "'{}' is not a valid '{}' for {}".format(item_val, item_type, item), None
             elif item_type == "TEXT" or item_type == "PASSWORD":
-                if re.fullmatch(r"[- \t,._A-Za-z0-9:=/#@]+", item_val) == None and item_val.strip() != "":
+                if re.fullmatch(r"[- \t,._A-Za-z0-9:=/#@!*]+", item_val) == None and item_val.strip() != "":
                     return "'{}' is not a valid '{}' for {}".format(item_val, item_type, item), None
             elif item_type == "SIMPLE_STRING":
                 if re.fullmatch(r"[-A-Za-z0-9]+", item_val) == None and item_val.strip() != "":
