@@ -1,6 +1,8 @@
 <h1 align="center">FakerNet</h1>
 
-![FakerNet Logo](fakernet.png)
+<p align="center">
+<img src="https://raw.githubusercontent.com/bocajspear1/fakernet/master/fakernet.png"/>
+</p>
 
 <h2 align="center">Internet-in-a-box</h2>
 <br/>
