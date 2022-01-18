@@ -27,6 +27,7 @@ ZONE_FORWARDING_CONFIG_TEMPLATE = """zone "$ZONE" {
 };
 """
 
+
 INSTANCE_TEMPLATE = "dns-server-{}"
 
 class DNSServer(DockerBaseModule):
@@ -148,6 +149,16 @@ class DNSServer(DockerBaseModule):
         },
         "smart_remove_external_subdomain": {
             "_desc": "Add subdomain that points to an external DNS server",
+            "fqdn": "TEXT",
+            "ip_addr": "IP_ADDR"
+        },
+        "add_override": {
+            "_desc": "Add a single domain override",
+            "fqdn": "TEXT",
+            "ip_addr": "IP_ADDR"
+        },
+        "remove_override": {
+            "_desc": "Remove a single domain override",
             "fqdn": "TEXT",
             "ip_addr": "IP_ADDR"
         },
@@ -500,6 +511,15 @@ class DNSServer(DockerBaseModule):
 
             # Create forwarders file
             open(dns_config_path + "/conf/forwarders.conf", "a").close()
+
+            # Prepare the override zone
+            override_zone_path = dns_config_path + "/zones/fn.rpz"
+            zone_file = open("./docker-images/dns/zone-template", "r").read()
+            zone_file = zone_file.replace("TEMPLATE.ZONE", "fn.rpz")
+            zone_file = zone_file.replace("1.1.1.1", "127.0.0.1")
+            out_zone = open(override_zone_path, "w+")
+            out_zone.write(zone_file)
+            out_zone.close()
 
             vols = {
                 dns_config_path: {"bind": "/etc/bind", 'mode': 'rw'}
@@ -1053,6 +1073,85 @@ class DNSServer(DockerBaseModule):
             if error is not None:
                 return error, None
             
+            return None, True
+        elif func == "add_override":
+            perror, _ = self.validate_params(self.__FUNCS__['add_override'], kwargs)
+            if perror is not None:
+                return perror, None
+            
+            fqdn = kwargs['fqdn']
+            ip_addr = kwargs['ip_addr']
+
+            if fqdn.endswith("."):
+                fqdn = fqdn[:-1]
+
+            # Python DNS module does not support zones with names not in the subdomain.
+            # We just do rudimentary manual records
+
+            dns_config_path = "{}/{}".format(DNS_BASE_DIR, 1)
+            override_zone = "{}/zones/fn.rpz".format(dns_config_path)
+
+            override_file = open(override_zone, "r")
+            lines = override_file.readlines()
+            override_file.close()
+
+            found = False 
+
+            override_file = open(override_zone, "w")
+            for line in lines:
+                line_split = line.split(" ")
+                if line_split[0] == fqdn:
+                    line_split[4] = ip_addr
+                    found = True
+                override_file.write(" ".join(line_split))
+            
+            if not found:
+                override_file.write("\n")
+                override_file.write(" ".join([
+                    fqdn, "604800", "IN", "A", ip_addr
+                ]))
+                override_file.write("\n")
+            
+            override_file.close()
+
+            error, _ = self._rndc_reload(1)
+            if error is not None:
+                return error, None
+
+            return None, True
+        elif func == "remove_override":
+            perror, _ = self.validate_params(self.__FUNCS__['remove_override'], kwargs)
+            if perror is not None:
+                return perror, None
+            
+            fqdn = kwargs['fqdn']
+            ip_addr = kwargs['ip_addr']
+
+            if fqdn.endswith("."):
+                fqdn = fqdn[:-1]
+
+            # Python DNS module does not support zones with names not in the subdomain.
+            # We just do rudimentary manual records
+
+            dns_config_path = "{}/{}".format(DNS_BASE_DIR, 1)
+            override_zone = "{}/zones/fn.rpz".format(dns_config_path)
+
+            override_file = open(override_zone, "r")
+            lines = override_file.readlines()
+            override_file.close()
+            override_file = open(override_zone, "w")
+
+            for line in lines:
+                line_split = line.split(" ")
+                if line_split[0] != fqdn and line_split[4] != ip_addr:
+                    override_file.write(" ".join(line_split))
+
+            override_file.close()
+
+            error, _ = self._rndc_reload(1)
+            if error is not None:
+                return error, None
+
             return None, True
         else:
             return "Invalid function '{}.{}'".format(self.__SHORTNAME__, func), None

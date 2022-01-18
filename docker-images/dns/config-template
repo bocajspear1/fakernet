@@ -20,7 +20,13 @@ options {
         recursion yes;
 
         include "/etc/bind/conf/forwarders.conf";
+        response-policy { zone "fn.rpz"; };
 
+};
+
+zone "fn.rpz" {
+    type master;
+    file "/etc/bind/zones/fn.rpz";
 };
 
 

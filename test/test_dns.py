@@ -62,6 +62,38 @@ class TestDNS(unittest.TestCase):
         except dns.exception.Timeout:
             pass
 
+    def test_dns_override(self):
+        error, _ = self.mm['dns'].run("add_override", fqdn="example.com", ip_addr='172.16.3.50')
+        self.assertTrue(error == None, msg=error)
+
+        time.sleep(20)
+
+        root_resolver = dns.resolver.Resolver()
+        root_resolver.nameservers = [TEST_DNS_ROOT]
+
+        answers = root_resolver.query('ns1.test', 'A')
+        self.assertTrue(answers is not None)
+        for resp in answers.response.answer:
+            for item in resp.items:
+                self.assertTrue(TEST_DNS_ROOT == item.to_text(), msg=item)
+            
+        answers = root_resolver.query('example.com', 'A')
+        self.assertTrue(answers is not None)
+        for resp in answers.response.answer:
+            for item in resp.items:
+                self.assertTrue('172.16.3.50' == item.to_text(), msg=item)
+
+        error, _ = self.mm['dns'].run("remove_override", fqdn="example.com", ip_addr='172.16.3.50')
+        self.assertTrue(error == None, msg=error)
+
+        time.sleep(20)
+
+        answers = root_resolver.query('example.com', 'A')
+        self.assertTrue(answers is not None)
+        for resp in answers.response.answer:
+            for item in resp.items:
+                self.assertFalse('172.16.3.50' == item.to_text(), msg=item)
+
     def test_dns_external_subdomain(self):
 
         SECOND_IP = '172.16.3.41'
@@ -93,12 +125,16 @@ class TestDNS(unittest.TestCase):
         error, _ = self.mm['dns'].run("smart_remove_external_subdomain", fqdn="subdomain.test", ip_addr=SECOND_IP)
         self.assertTrue(error == None, msg=error)
 
+        time.sleep(20)
+
         try:
             answers = root_resolver.query('subdomain.test', 'NS')
             self.fail()
         except dns.resolver.NXDOMAIN: 
             pass
         except dns.exception.Timeout:
+            pass
+        except dns.resolver.NoAnswer:
             pass
 
     # @unittest.skip("long...")
