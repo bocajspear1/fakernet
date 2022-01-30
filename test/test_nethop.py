@@ -47,7 +47,7 @@ class TestNetworkHop(unittest.TestCase):
         error, hop1_id = self.mm['nethop'].run("add_network_hop", front_ip='172.16.3.160', fqdn='net2.test', net_addr='192.168.200.0/24', switch='testnet1', description='test')
         self.assertTrue(error == None, msg=error)
 
-        time.sleep(30)
+        time.sleep(60)
 
         error, hop2_id = self.mm['nethop'].run("add_network_hop", front_ip='192.168.200.10', fqdn='net3.test', net_addr='192.168.100.0/24', switch='testnet2', description='test2')
         self.assertTrue(error == None, msg=error)

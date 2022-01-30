@@ -210,7 +210,6 @@ class LXDManager(LXDBaseModule):
                     },
                     "devices": {
                         "eth0": {
-                            "ipv4.address": ip_addr,
                             "type": "nic",
                             "nictype": "bridged",
                             "parent": switch
