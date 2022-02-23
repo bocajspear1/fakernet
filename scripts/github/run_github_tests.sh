@@ -17,6 +17,6 @@ echo -e "${COLOR_BLUE}Cleaning...${COLOR_RESET}"
 python3 tools/full-clean.py -f
 python3 tools/clean-images.py -f
 echo -e "${COLOR_BLUE}Building...${COLOR_RESET}"
-python3 build.py
+python3 -u build.py
 echo -e "${COLOR_BLUE}Testing...${COLOR_RESET}"
-python3 test/test_all.py -f
+python3 -u test/run_tests.py -f
