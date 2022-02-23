@@ -59,7 +59,7 @@ class TestWebdav(unittest.TestCase, ModuleTestBase):
         time.sleep(30)
         webdav_url = "https://{}/files/".format(dns_2)
 
-        full_path = parentdir + "/work/webdavalpine/1/webdav/admin.pass"
+        full_path = parentdir + "/work/webdavalpine/" + str(server_id) + "/webdav/admin.pass"
         self.assertTrue(os.path.exists(full_path), msg="{} does not exist".format(full_path))
 
         admin_pass = open(full_path, "r").read().strip()

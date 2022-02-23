@@ -60,7 +60,7 @@ class TestLXD(ModuleTestBase, unittest.TestCase):
     def do_test_basic_functionality(self, server_id):
         time.sleep(10)
 
-        lxc_output = subprocess.check_output(["/usr/bin/lxc", 'list']).decode()
+        lxc_output = subprocess.check_output(["/bin/bash", "-c", "lxc list"]).decode()
         self.assertTrue(self.domain_1_name.replace(".", "-") in lxc_output, msg=lxc_output)
 
         error, server_list = self.mm.list_all_servers()
