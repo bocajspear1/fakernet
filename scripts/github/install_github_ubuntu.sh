@@ -4,13 +4,14 @@ USERNAME="fakernet"
 
 sudo useradd -m ${USERNAME}
 
-which bash
-
 NO_MOVE=0
 CREATE_SERVICE=0
 INSTALL_USER=${USERNAME}
 INSTALL_UID=$(id -u ${USERNAME})
 INSTALL_DIR=/opt/fakernet
+
+id 
+echo ${INSTALL_UID}
 
 COLOR_RED="\e[1;31m"
 COLOR_BLUE="\e[1;34m"

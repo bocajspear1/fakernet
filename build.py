@@ -10,6 +10,8 @@ if __name__ == "__main__":
     sys.stdout.write("Loading\n")
     sys.stdout.flush()
     manager.load()
+    sys.stdout.write("Loading Done\n")
+    sys.stdout.flush()
 
     if len(sys.argv) > 1:
         module_name = sys.argv[1]

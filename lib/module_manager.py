@@ -125,7 +125,13 @@ class ModuleManager():
         fileLog = logging.FileHandler("./logs/fakernet.log")
         formatter = logging.Formatter('%(asctime)s %(levelname)s USER=%(user)s : %(message)s')
         fileLog.setFormatter(formatter)
-        self._logger.setLevel(logging.INFO)
+        
+        if os.getenv("FAKERNET_DEBUG") is None:
+            self._logger.setLevel(logging.INFO)
+        else:
+            self._logger.setLevel(logging.DEBUG)
+            self._logger.addHandler(logging.StreamHandler())
+
         self._logger.handlers = []
         self._logger.addHandler(fileLog)
 
@@ -297,6 +303,7 @@ class ModuleManager():
                 if module.endswith(".py"):
                     temp = importlib.import_module("modules." + module.replace(".py", ""))
                     shortname = temp.__MODULE__.__SHORTNAME__
+                    self.logger.debug("Loading module {}".format(shortname))
                     self.modules[shortname] = LockModule(temp.__MODULE__(self), self)
                     if shortname != "init":
                         # fnconsole manually calls init's check
@@ -325,6 +332,7 @@ class ModuleManager():
         module_list = os.listdir("./modules")
         for module in module_list:
             if module.endswith(".py"):
+                self.logger.debug("Building module {}".format(module.replace(".py", "")))
                 temp = importlib.import_module("modules." + module.replace(".py", ""))
                 temp.__MODULE__(self).build()
 
