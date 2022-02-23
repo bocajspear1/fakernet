@@ -12,7 +12,7 @@ COLOR_GREEN="\e[1;32m"
 COLOR_ORANGE="\e[1;33m"
 COLOR_RESET="\e[0m"
 
-useradd fakernet
+sudo useradd fakernet
 
 # Make sure the time synced
 sudo timedatectl set-ntp off
