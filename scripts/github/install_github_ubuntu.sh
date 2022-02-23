@@ -1,9 +1,15 @@
 #!/bin/bash
 
+USERNAME="fakernet"
+
+sudo useradd -m ${USERNAME}
+
+which bash
+
 NO_MOVE=0
 CREATE_SERVICE=0
-INSTALL_USER=fakernet
-INSTALL_UID=$(id -u fakernet)
+INSTALL_USER=${USERNAME}
+INSTALL_UID=$(id -u ${USERNAME})
 INSTALL_DIR=/opt/fakernet
 
 COLOR_RED="\e[1;31m"
@@ -11,8 +17,6 @@ COLOR_BLUE="\e[1;34m"
 COLOR_GREEN="\e[1;32m"
 COLOR_ORANGE="\e[1;33m"
 COLOR_RESET="\e[0m"
-
-sudo useradd fakernet
 
 # Make sure the time synced
 sudo timedatectl set-ntp off
