@@ -1,9 +1,14 @@
 import sys
-
+sys.stdout.write("Hello there\n")
+sys.stdout.flush()
 from lib.module_manager import ModuleManager
+sys.stdout.write("Hello again\n")
+sys.stdout.flush()
 
 if __name__ == "__main__":
     manager = ModuleManager()
+    sys.stdout.write("Loading\n")
+    sys.stdout.flush()
     manager.load()
 
     if len(sys.argv) > 1:
