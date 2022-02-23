@@ -1,0 +1,12 @@
+name: Testing
+on: [push]
+jobs:
+  test-fakernet:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository code
+        uses: actions/checkout@v2
+      - name: Build and run tests
+        run: |
+          ./scripts/github/install_github_ubuntu.sh
+          sudo --user fakernet ./scripts/github/run_github_tests.sh
