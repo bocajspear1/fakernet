@@ -36,7 +36,6 @@ class TestBepasty(ModuleTestBase, unittest.TestCase):
     def create_server(self):
         error, server_id = self.mm[self.module_name].run("add_server", ip_addr=self.server_1_ip, fqdn=self.server_fqdn)
         self.assertTrue(error == None, msg=error)
-        time.sleep(30)
         return server_id
 
     def remove_server(self, server_id):
@@ -44,8 +43,9 @@ class TestBepasty(ModuleTestBase, unittest.TestCase):
         self.assertTrue(error == None, msg=error)
 
     def do_test_basic_functionality(self, server_id):
+        time.sleep(30)
         resp = requests.get("https://{}/".format(self.server_fqdn), verify=TEST_CA_PATH)
-        self.assertTrue(resp.status_code == 200)
+        self.assertTrue(resp.status_code == 200, msg=self.dump_docker_info("Response not 200: {} {}".format(resp.status_code, resp.content)))
 
     def test_bepasty(self):
         server_1_ip = '172.16.3.130'

@@ -23,6 +23,7 @@ class TestMattermost(ModuleTestBase, unittest.TestCase):
 
     def setUp(self):
         self.module_name = 'mattermost'
+        self.module_type = "docker"
         self.load_mm()
         self.server_1_ip = '172.16.3.171'
         self.domain_1_name = 'mattermost1.test'
@@ -35,7 +36,6 @@ class TestMattermost(ModuleTestBase, unittest.TestCase):
     def create_server(self):
         error, server_id = self.mm[self.module_name].run("add_server", ip_addr=self.server_1_ip, fqdn=self.domain_1_name)
         self.assertTrue(error == None, msg=error)
-        time.sleep(60 * 4)
         return server_id
 
     def remove_server(self, server_id):
@@ -43,7 +43,8 @@ class TestMattermost(ModuleTestBase, unittest.TestCase):
         self.assertTrue(error == None, msg=error)
 
     def do_test_basic_functionality(self, server_id):
-        resp = requests.get("https://{}/".format(self.domain_1_name), verify=TEST_CA_PATH)
-        self.assertTrue(resp.status_code == 200)
+        time.sleep(60 * 3)
+        resp = self.do_requests_get("https://{}/".format(self.domain_1_name), verify=TEST_CA_PATH)
+        self.assertTrue(resp.status_code == 200 or resp.status_code == 302 , msg=self.dump_docker_info("Response not 200: {} {}".format(resp.status_code, resp.content)))
 
 

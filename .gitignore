@@ -14,3 +14,4 @@ history.json
 *.pem
 *.key
 node_modules/*
+testlogs/*

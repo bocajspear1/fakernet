@@ -153,7 +153,7 @@ class NetReservation(LXDBaseModule):
             self.lxd_execute(container_name, "service ripd restart")
             self.lxd_execute(container_name, "service zebra restart")
             self.lxd_execute(container_name, "service ripd restart")
-
+            
             nerror, is_hop = self.mm['netreserve'].run("is_hop_network_by_switch", switch=front_switch)
             if nerror is not None:
                 return nerror, None
@@ -322,11 +322,11 @@ class NetReservation(LXDBaseModule):
         results = dbc.fetchall()
         new_list = []
         for container in results:
-            new_data = ["lxd"]
+            new_data = ["nethop"]
             new_data += [container[0], container[1], container[2]]
             container_name = container[2].split(".")[0]
             _, status = self.lxd_get_status(container_name)
-            new_data += status[1]
+            new_data.append(status[1])
             new_list.append(new_data)
         return new_list
 

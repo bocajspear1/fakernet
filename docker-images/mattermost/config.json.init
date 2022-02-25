@@ -129,8 +129,8 @@
         "IosMinVersion": ""
     },
     "SqlSettings": {
-        "DriverName": "postgres",
-        "DataSource": "postgres:///mattermostdb?host=/run/postgresql",
+        "DriverName": "mysql",
+        "DataSource": "mmuser:INSERT_DB_PASSWORD@unix(/run/mysqld/mysqld.sock)/mattermost?charset=utf8mb4,utf8&writeTimeout=30s",
         "DataSourceReplicas": [],
         "DataSourceSearchReplicas": [],
         "MaxIdleConns": 20,

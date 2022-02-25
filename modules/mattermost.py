@@ -86,6 +86,7 @@ class MattermostServer(DockerBaseModule):
             time.sleep(20)
 
             self.docker_run(container_name, "chown -R root:root /mattermost")
+            self.docker_run(container_name, "chown -R root:root /var/lib/mysql")
 
             # Try to stop the server first, ignore errors as the container may have crashed or been killed externally
             self.docker_stop(container_name, server_ip)
@@ -163,7 +164,7 @@ class MattermostServer(DockerBaseModule):
 
             vols = {
                 certs_dir: {"bind": "/etc/certs", 'mode': 'rw'},
-                db_dir: {"bind": "/var/lib/postgresql/data", 'mode': 'rw'},
+                db_dir: {"bind": "/var/lib/mysql", 'mode': 'rw'},
                 "/etc/localtime": {"bind": "/etc/localtime", 'mode': 'rw'},
                 config_dir: {"bind": "/mattermost/config", 'mode': 'rw'},
                 data_dir: {"bind": "/mattermost/data", 'mode': 'rw'},
@@ -238,7 +239,7 @@ class MattermostServer(DockerBaseModule):
     
     def build(self):
         self.print("Building Mattermost server image...")
-        _, logs = self.mm.docker.images.build(path="./docker-images/mattermost/", tag=self.__SERVER_IMAGE_NAME__, rm=True)
+        _, logs = self.mm.docker.images.build(path="./docker-images/mattermost/", tag=self.__SERVER_IMAGE_NAME__)
         # self.print(logs)
 
     def get_list(self):

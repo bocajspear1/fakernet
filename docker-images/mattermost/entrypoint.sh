@@ -1,71 +1,48 @@
-#!/bin/sh
+#!/bin/ash
 
-# Function to generate a random salt
-generate_salt() {
-  tr -dc 'a-zA-Z0-9' < /dev/urandom | fold -w 48 | head -n 1
+
+if [ -z "${DOMAIN}" ]; then
+    echo "Need a domain"
+    exit 1
+fi
+
+# MySQL Setup
+start_mysql () {
+  mysqld --socket=/run/mysqld/mysqld.sock --user=mysql --datadir=/var/lib/mysql &
+  sleep 2
 }
 
-# Read environment variables or set default values
-DB_HOST="127.0.0.1"
-DB_PORT_NUMBER=${DB_PORT_NUMBER:-5432}
-MM_DBNAME=${MM_DBNAME:-mattermost}
-MM_CONFIG=${MM_CONFIG:-/mattermost/config/config.json}
+mkdir -p /var/lib/mysql/
+chown mysql:mysql /var/lib/mysql/
+mkdir -p /run/mysqld/
+chown mysql:mysql /run/mysqld/
 
-if [ "${1:0:1}" = '-' ]; then
-    set -- mattermost "$@"
+chmod 777 /mattermost/plugins
+chmod 777 /mattermost/client/plugins
+chmod 777 /mattermost/data
+mkdir -p /mattermost/logs
+# echo "Setting permissions..."
+# chown mattermost:mattermost -R /mattermost
+
+if [ ! -e "/mattermost/config/config.json " ]; then
+    echo "Setting up MariaDB"
+    mysql_install_db --user=mysql --datadir=/var/lib/mysql
+    start_mysql
+
+    DB_PASSWORD=$(cat /dev/urandom | tr -dc 'a-zA-Z0-9' | fold -w 32 | head -n 1)
+    mysql -u root -e "create user 'mmuser'@'localhost' identified by '${DB_PASSWORD}'; create database mattermost;"
+    mysql -u root -e " grant all privileges on mattermost.* to 'mmuser'@'localhost'; flush privileges;"
+    
+    echo "Setting up Mattermost config"
+    mv /config.json.init  /mattermost/config/config.json 
+    sed -i "s|DOMAIN.ZONE|${DOMAIN}|" /mattermost/config/config.json 
+    SECRET_KEY=$(cat /dev/urandom | tr -dc 'a-zA-Z0-9' | fold -w 32 | head -n 1)
+    sed -i "s|INSERT_SECRET_KEY|${SECRET_KEY}|" /mattermost/config/config.json 
+    sed -i "s|INSERT_DB_PASSWORD|${DB_PASSWORD}|" /mattermost/config/config.json 
+    chown mattermost:mattermost /mattermost/config/config.json
+    chmod 775 /mattermost/config/config.json
+else
+  start_mysql
 fi
 
-if [ "$1" = 'mattermost' ]; then
-  # Check CLI args for a -config option
-  for ARG in $@;
-  do
-      case "$ARG" in
-          -config=*)
-              MM_CONFIG=${ARG#*=};;
-      esac
-  done
-
-  if [ ! -f $MM_CONFIG ]
-  then
-    # If there is no configuration file, create it with some default values
-    echo "No configuration file" $MM_CONFIG
-    echo "Creating a new one"
-    # Copy default configuration file
-    cp /config.json.save $MM_CONFIG
-    id 
-    ls -la /mattermost
-    ls -la /mattermost/config
-
-    # Substitue some parameters with jq
-    jq '.ServiceSettings.ListenAddress = ":8000"' $MM_CONFIG > $MM_CONFIG.tmp && mv $MM_CONFIG.tmp $MM_CONFIG
-    jq '.LogSettings.EnableConsole = true' $MM_CONFIG > $MM_CONFIG.tmp && mv $MM_CONFIG.tmp $MM_CONFIG
-    jq '.LogSettings.ConsoleLevel = "ERROR"' $MM_CONFIG > $MM_CONFIG.tmp && mv $MM_CONFIG.tmp $MM_CONFIG
-    jq '.FileSettings.Directory = "/mattermost/data/"' $MM_CONFIG > $MM_CONFIG.tmp && mv $MM_CONFIG.tmp $MM_CONFIG
-    jq '.FileSettings.EnablePublicLink = true' $MM_CONFIG > $MM_CONFIG.tmp && mv $MM_CONFIG.tmp $MM_CONFIG
-    jq '.FileSettings.PublicLinkSalt = "'$(generate_salt)'"' $MM_CONFIG > $MM_CONFIG.tmp && mv $MM_CONFIG.tmp $MM_CONFIG
-    jq '.EmailSettings.SendEmailNotifications = false' $MM_CONFIG > $MM_CONFIG.tmp && mv $MM_CONFIG.tmp $MM_CONFIG
-    jq '.EmailSettings.FeedbackEmail = ""' $MM_CONFIG > $MM_CONFIG.tmp && mv $MM_CONFIG.tmp $MM_CONFIG
-    jq '.EmailSettings.SMTPServer = ""' $MM_CONFIG > $MM_CONFIG.tmp && mv $MM_CONFIG.tmp $MM_CONFIG
-    jq '.EmailSettings.SMTPPort = ""' $MM_CONFIG > $MM_CONFIG.tmp && mv $MM_CONFIG.tmp $MM_CONFIG
-    jq '.EmailSettings.InviteSalt = "'$(generate_salt)'"' $MM_CONFIG > $MM_CONFIG.tmp && mv $MM_CONFIG.tmp $MM_CONFIG
-    jq '.EmailSettings.PasswordResetSalt = "'$(generate_salt)'"' $MM_CONFIG > $MM_CONFIG.tmp && mv $MM_CONFIG.tmp $MM_CONFIG
-    jq '.RateLimitSettings.Enable = true' $MM_CONFIG > $MM_CONFIG.tmp && mv $MM_CONFIG.tmp $MM_CONFIG
-    jq '.SqlSettings.DriverName = "postgres"' $MM_CONFIG > $MM_CONFIG.tmp && mv $MM_CONFIG.tmp $MM_CONFIG
-    jq '.SqlSettings.AtRestEncryptKey = "'$(generate_salt)'"' $MM_CONFIG > $MM_CONFIG.tmp && mv $MM_CONFIG.tmp $MM_CONFIG
-    jq '.PluginSettings.Directory = "/mattermost/plugins/"' $MM_CONFIG > $MM_CONFIG.tmp && mv $MM_CONFIG.tmp $MM_CONFIG
-  else
-    echo "Using existing config file" $MM_CONFIG
-  fi
-
-
-  export MM_SQLSETTINGS_DATASOURCE="postgres:///mattermostdb?host=/run/postgresql"
-  
-
-  # Wait another second for the database to be properly started.
-  # Necessary to avoid "panic: Failed to open sql connection pq: the database system is starting up"
-  sleep 1
-
-  echo "Starting mattermost"
-fi
-
-exec "$@"
+su mattermost -c '/mattermost/bin/mattermost'
