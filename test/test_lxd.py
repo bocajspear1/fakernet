@@ -75,7 +75,7 @@ class TestLXD(ModuleTestBase, unittest.TestCase):
         username = 'root'
         password = 'testtest'
 
-        self.assertTrue(self.can_ssh_to_system(self.server_1_ip, username, password), msg=self.dump_lxd_info("Could not SSH correctly to {} with creds {}:{}".format(self.server_1_ip, username, password))
+        self.assertTrue(self.can_ssh_to_system(self.server_1_ip, username, password), msg=self.dump_lxd_info("Could not SSH correctly to {} with creds {}:{}".format(self.server_1_ip, username, password)))
     
     def test_templates(self):
         find_template = 'ubuntu_1804_base'
