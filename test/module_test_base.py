@@ -140,15 +140,25 @@ class ModuleTestBase():
 
         all_containers = lxd.containers.all()
         for container in all_containers:
-            container.sync()
+            try:
+                container.sync()
+            except pylxd.exceptions.NotFound:
+                cont_output += "{} = NOT FOUND".format(container.name)
+                cont_output += "\n\n"
+                continue
             cont_output += "{} = {}\n\n".format(container.name, container.state().status)
 
-            status, stdout, stderr = container.execute(["cat", "/proc/net/fib_trie"])
-            if status == 0:
-                # output = stdout.decode()
-                output = stdout
-                output_split = output.split("Local:")
-                cont_output += output_split[0] + "\n"
+            if container.state().status.lower() == "running":
+
+
+                status, stdout, stderr = container.execute(["cat", "/proc/net/fib_trie"])
+                if status == 0:
+                    # output = stdout.decode()
+                    output = stdout
+                    output_split = output.split("Local:")
+                    cont_output += output_split[0] + "\n"
+            else:
+                cont_output += "NOT RUNNING\n"
 
             cont_output += "\n\n"
 
