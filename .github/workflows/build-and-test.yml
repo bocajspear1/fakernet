@@ -10,10 +10,10 @@ jobs:
         run: |
           ./scripts/github/install_github_ubuntu.sh
           sudo --user fakernet ./scripts/github/run_github_build.sh
-          mv /etc/resolv.conf /etc/resolv.conf.backup
-          echo "nameserver 172.16.3.2 > /etc/resolv.conf"
+          sudo mv /etc/resolv.conf /etc/resolv.conf.backup
+          echo "nameserver 172.16.3.2 | sudo tee /etc/resolv.conf"
           sudo --user fakernet ./scripts/github/run_github_tests.sh
-          mv /etc/resolv.conf.backup /etc/resolv.conf
+          sudo mv /etc/resolv.conf.backup /etc/resolv.conf
       - name: Upload any testlogs
         if: always()
         uses: actions/upload-artifact@v2
