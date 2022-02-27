@@ -4,7 +4,6 @@ dnspython==2.1.0
 requests==2.26.0
 pyOpenSSL==20.0.1
 docker==5.0.0
-pylxd==2.3.0
 tableprint==0.9.1
 Jinja2==3.0.1
 animation==0.0.7
