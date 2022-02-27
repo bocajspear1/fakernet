@@ -52,7 +52,7 @@ class TestBepasty(ModuleTestBase, unittest.TestCase):
         error, server_id = self.mm['pastebin-bepasty'].run("add_server", ip_addr=server_1_ip, fqdn=self.server_fqdn)
         self.assertTrue(error == None, msg=error)
 
-        time.sleep(10)
+        time.sleep(15)
         data = {
             "text": "test_data",
             "contenttype": "",

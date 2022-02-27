@@ -3,6 +3,7 @@ import os
 import sys
 import time
 import docker
+import pylxd
 from pylxd import Client
 import requests
 
@@ -43,7 +44,7 @@ class ModuleTestBase():
         raise NotImplementedError
 
     def test_basic_functionality(self):
-        time.sleep(30)
+        time.sleep(15)
         server_id = self.create_server()
         data = self.mm[self.module_name].get_list()
         to_find = 1
@@ -177,5 +178,5 @@ class ModuleTestBase():
         client = docker.from_env()
 
         self._dump_docker_general()
-                
+
         return message

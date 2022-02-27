@@ -36,12 +36,10 @@ class TestLXD(ModuleTestBase, unittest.TestCase):
         error, _ = self.mm[self.module_name].run("stop_container", id=server_id)
         self.assertTrue(error == None, msg=self.dump_lxd_info(error))
         time.sleep(5)
-        
 
     def create_server(self):
         error, server_id = self.mm[self.module_name].run("add_container", ip_addr=self.server_1_ip, fqdn=self.domain_1_name, template='ubuntu_1804_base', password='testtest')
         self.assertTrue(error == None, msg=self.dump_lxd_info(error))
-        time.sleep(10)
         return server_id
 
     def remove_server(self, server_id):
@@ -130,6 +128,11 @@ class TestLXD(ModuleTestBase, unittest.TestCase):
         self.assertTrue(self.can_ssh_to_system(self.server_2_ip, username, password), msg=self.dump_lxd_info("Could not SSH correctly to {} with creds {}:{}".format(self.server_2_ip, username, password)))
         self.assertTrue(self.can_ssh_to_system(self.server_3_ip, username, password), msg=self.dump_lxd_info("Could not SSH correctly to {} with creds {}:{}".format(self.server_3_ip, username, password)))
         
+        error, _ = self.mm['lxd'].run("stop_container", id=cont_id2)
+        self.assertTrue(error == None, msg=self.dump_lxd_info(error))
+
+        error, _ = self.mm['lxd'].run("stop_container", id=cont_id)
+        self.assertTrue(error == None, msg=self.dump_lxd_info(error))
 
         error, _ = self.mm['lxd'].run("remove_container", id=cont_id2)
         self.assertTrue(error == None, msg=self.dump_lxd_info(error))

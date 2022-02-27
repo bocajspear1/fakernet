@@ -33,6 +33,11 @@ fi
 echo -e "${COLOR_BLUE}Installing other dependencies...${COLOR_RESET}"
 sudo apt-get install -y openvswitch-switch python3-venv python3-pip quagga traceroute rustc libssl-dev
 
+echo -e "${COLOR_BLUE}Installing LXD 4.0 LTS snap (package is old)...${COLOR_RESET}"
+sudo apt-get remove lxd 2>/dev/null || true
+sudo snap remove lxd 2>/dev/null || true
+sudo snap install lxd --channel=4.0/stable
+
 echo -e "${COLOR_BLUE}Adding install user to 'quaggavty' group...${COLOR_RESET}"
 sudo usermod -a -G quaggavty $INSTALL_USER
 
@@ -123,5 +128,8 @@ sudo systemctl stop docker
 sleep 10
 sudo systemctl start docker  
 
+echo ""
+lxc version
+echo ""
 
 echo -e "${COLOR_GREEN}Installation is complete!${COLOR_RESET}"

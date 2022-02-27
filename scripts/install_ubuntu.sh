@@ -91,7 +91,11 @@ sudo apt-get update
 sudo apt-get install -y docker-ce docker-ce-cli containerd.io
 
 echo -e "${COLOR_BLUE}Installing other dependencies...${COLOR_RESET}"
-sudo apt-get install -y openvswitch-switch lxd python3-venv python3-pip quagga traceroute rustc libssl-dev
+sudo apt-get install -y openvswitch-switch python3-venv python3-pip quagga traceroute rustc libssl-dev
+
+echo -e "${COLOR_BLUE}Installing LXD snap (package is old)...${COLOR_RESET}"
+sudo snap remove lxd 2>/dev/null 
+sudo snap install lxd --channel=4.0/stable
 
 echo -e "${COLOR_BLUE}Adding current user to 'quaggavty' group...${COLOR_RESET}"
 sudo usermod -a -G quaggavty $INSTALL_USER
