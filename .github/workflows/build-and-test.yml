@@ -10,11 +10,12 @@ jobs:
         run: |
           ./scripts/github/install_github_ubuntu.sh
           sudo --user fakernet ./scripts/github/run_github_build.sh
-          sudo mv /etc/resolv.conf /etc/resolv.conf.backup
-          echo "nameserver 172.16.3.2" | sudo tee /etc/resolv.conf
-          cat /etc/resolv.conf.backup | sudo tee --append /etc/resolv.conf
+          echo "DNS=172.16.3.2#test 8.8.8.8" | sudo tee --append /etc/systemd/resolved.conf
+          echo "FallbackDNS=1.1.1.1" | sudo tee --append /etc/systemd/resolved.conf
+          echo "Domains=~test" | sudo tee --append /etc/systemd/resolved.conf
+          sudo service systemd-resolved restart
+          sudo systemd-resolve --status
           sudo --user fakernet ./scripts/github/run_github_tests.sh
-          sudo mv /etc/resolv.conf.backup /etc/resolv.conf
       - name: Upload any testlogs
         if: always()
         uses: actions/upload-artifact@v2
