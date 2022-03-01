@@ -69,6 +69,7 @@ class TestNetworkHop(ModuleTestBase, unittest.TestCase):
         for server_id in server_ids:
             error, _ = self.mm[self.module_name].run("remove_network_hop", id=server_id)
             self.assertTrue(error == None, msg=self.dump_lxd_info(error))
+            time.sleep(5)
 
     def do_test_basic_functionality(self, server_id):
         traceroute = subprocess.check_output(["/usr/sbin/traceroute", '-n', '192.168.100.1']).decode().strip()

@@ -191,6 +191,9 @@ class NetReservation(LXDBaseModule):
             fqdn = result[1]
             switch_name = result[2]
 
+            # Stop the hop
+            self.run('stop_hop', id=hop_id)
+
             # Deallocate our IP address
             error, _ = self.mm['ipreserve'].run("remove_ip", ip_addr=front_ip)
 
@@ -198,7 +201,7 @@ class NetReservation(LXDBaseModule):
             err, _ = self.mm['dns'].run("remove_host", fqdn=fqdn, ip_addr=front_ip)
 
             # Delete the hop container itself
-            err, _ = self.lxd_delete(container_name)
+            del_err, _ = self.lxd_delete(container_name)
 
             time.sleep(2)
 
@@ -210,6 +213,9 @@ class NetReservation(LXDBaseModule):
             err, network_data = self.mm['netreserve'].run("get_network_by_switch", switch=switch_name)
             if err is not None:
                 return err, None
+
+            if del_err is not None:
+                return del_err, None
 
             return self.mm['netreserve'].run("remove_network", id=network_data['net_id'])
 

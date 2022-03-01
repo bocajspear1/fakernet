@@ -315,6 +315,8 @@ class Zone(object):
         os.remove(filename)
         outfile = open(filename, "w+")
         outfile.write(outtext)
+        outfile.flush()
+        os.fsync(outfile.fileno())
         outfile.close()
     
 
