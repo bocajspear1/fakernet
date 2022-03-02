@@ -68,7 +68,7 @@ class TestNetworkHop(ModuleTestBase, unittest.TestCase):
     def remove_server(self, server_ids):
         for server_id in server_ids:
             error, _ = self.mm[self.module_name].run("remove_network_hop", id=server_id)
-            self.assertTrue(error == None, msg=self.dump_lxd_info(error))
+            self.assertTrue(error == None, msg=error)
             time.sleep(5)
 
     def do_test_basic_functionality(self, server_id):
@@ -79,12 +79,15 @@ class TestNetworkHop(ModuleTestBase, unittest.TestCase):
         # self.assertTrue(len(traceroute_split) == 3, msg=self.dump_lxd_info(str(traceroute_split)))
 
         error, cont_id = self.mm['lxd'].run("add_container", ip_addr='192.168.100.100', fqdn='lxd-hop.test', template='ubuntu_1804_base', password='testtest')
-        self.assertTrue(error == None, msg=self.dump_lxd_info(error))
+        self.assertTrue(error == None, msg=error)
 
         subprocess.check_output(["/bin/ping", '-c', '2', '192.168.100.100'])
 
         traceroute = subprocess.check_output(["/usr/sbin/traceroute", '-n', '192.168.100.100']).decode().strip()
 
         traceroute_split = traceroute.split("\n")
+
+        error, _ = self.mm['lxd'].run("remove_container", id=cont_id)
+        self.assertTrue(error == None, msg=error)
 
         # self.assertTrue(len(traceroute_split) == 4, msg=self.dump_lxd_info(str(traceroute_split)))

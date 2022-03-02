@@ -59,6 +59,21 @@ class NetReservation(LXDBaseModule):
             print(e)
             return None
 
+    def _configure_second_iface(self, container_name, switch_name):
+        # Add second switch interface
+        err, network_data = self.mm['netreserve'].run("get_network_by_switch", switch=switch_name)
+        if err is not None:
+            return err, None
+
+        network_obj = ipaddress.ip_network(network_data['net_address'])
+
+        err, _ = self.lxd_execute(container_name, "ip addr add {}/{} dev eth1".format(str(list(network_obj.hosts())[0]), str(network_obj.prefixlen)))
+        if err is not None:
+            return err, None
+        
+        return None, True
+
+
     def run(self, func, **kwargs) :
         dbc = self.mm.db.cursor()
         if func == "list":
@@ -239,18 +254,7 @@ class NetReservation(LXDBaseModule):
             if serror is not None:
                 return serror, None
 
-            # Add second switch interface
-            err, network_data = self.mm['netreserve'].run("get_network_by_switch", switch=switch_name)
-            if err is not None:
-                return err, None
-
-            network_obj = ipaddress.ip_network(network_data['net_address'])
-
-            err, _ = self.lxd_execute(container_name, "ip addr add {}/{} dev eth1".format(str(list(network_obj.hosts())[0]), str(network_obj.prefixlen)))
-            if err is not None:
-                return err, None
-
-            return None, True
+            return self._configure_second_iface(container_name, switch_name)
         elif func == "stop_hop":
             perror, _ = self.validate_params(self.__FUNCS__['stop_hop'], kwargs)
             if perror is not None:
@@ -330,10 +334,39 @@ class NetReservation(LXDBaseModule):
         for container in results:
             new_data = ["nethop"]
             new_data += [container[0], container[1], container[2]]
-            container_name = container[2].split(".")[0]
+            container_name = INSTANCE_TEMPLATE.format(container[0])
             _, status = self.lxd_get_status(container_name)
             new_data.append(status[1])
             new_list.append(new_data)
         return new_list
+
+    def save(self):
+        dbc = self.mm.db.cursor()
+        dbc.execute("SELECT hop_id FROM nethop;")
+        results = dbc.fetchall()
+
+        new_results = []
+        for result in results:
+            container_name = INSTANCE_TEMPLATE.format(result[0])
+            new_results.append((result[0], container_name))
+
+        return self._save_add_data(new_results)
+
+    def restore(self, restore_data):
+        dbc = self.mm.db.cursor()
+        
+        for server_data in restore_data:
+            hop_id = server_data[0]
+            dbc.execute("SELECT front_ip, switch_name FROM nethop WHERE hop_id=?", (hop_id,))
+            results = dbc.fetchone()
+            if results:
+                switch_name = results[1]
+                container_name = INSTANCE_TEMPLATE.format(hop_id)
+
+                self._restore_server(container_name, results[0], server_data[1])
+
+                self._configure_second_iface(container_name, switch_name)
+
+
 
 __MODULE__ = NetReservation

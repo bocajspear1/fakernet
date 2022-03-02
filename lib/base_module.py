@@ -412,6 +412,7 @@ class LXDBaseModule(BaseModule):
             status = container.state().status
             return None, ("yes", status.lower())
         except pylxd.exceptions.LXDAPIException as e:
+            print(e)
             return e, ("no", "unknown")
 
     def _restore_server(self, container_name, server_ip, new_status):
