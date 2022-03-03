@@ -39,7 +39,7 @@ class TestWebdav(unittest.TestCase, ModuleTestBase):
     def create_server(self):
         error, server_id = self.mm['webdavalpine'].run("add_server", ip_addr=self.server_1_ip, fqdn=self.dns_1)
         self.assertTrue(error == None, msg=error)
-        time.sleep(5)
+        time.sleep(25)
         return server_id
 
     def remove_server(self, server_id):
@@ -47,6 +47,7 @@ class TestWebdav(unittest.TestCase, ModuleTestBase):
         self.assertTrue(error == None, msg=error)
 
     def do_test_basic_functionality(self, server_id):
+        time.sleep(15)
         resp = requests.get("https://{}/".format(self.dns_1), verify=TEST_CA_PATH)
         self.assertTrue(resp.status_code == 200)
 
