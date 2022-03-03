@@ -312,7 +312,7 @@ class Zone(object):
             filename = self.filename
         outtext = self._zone.to_text(relativize=False)
 
-        os.remove(filename)
+        # os.remove(filename)
         outfile = open(filename, "w+")
         outfile.write(outtext)
         outfile.flush()
