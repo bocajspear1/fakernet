@@ -52,12 +52,12 @@ class TestWebdav(unittest.TestCase, ModuleTestBase):
         self.assertTrue(resp.status_code == 200)
 
     def test_webdav(self):
-        server_2_ip = '172.16.3.155'
+        server_2_ip = '172.16.3.156'
         dns_2 = 'webdav2.test'
         error, server_id = self.mm['webdavalpine'].run("add_server", ip_addr=server_2_ip, fqdn=dns_2)
         self.assertTrue(error == None, msg=error)
 
-        time.sleep(30)
+        time.sleep(50)
         webdav_url = "https://{}/files/".format(dns_2)
 
         full_path = parentdir + "/work/webdavalpine/" + str(server_id) + "/webdav/admin.pass"
