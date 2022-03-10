@@ -6,6 +6,7 @@ import docker
 import pylxd
 from pylxd import Client
 import requests
+import dns.resolver
 
 from constants import *
 
@@ -82,6 +83,16 @@ class ModuleTestBase():
             self.fail(msg=self.dump_docker_info(message))
         elif self.module_type == "lxd":
             self.fail(msg=self.dump_lxd_info(message))
+
+    def check_dns(self, fqdn, ip_addr):
+        root_resolver = dns.resolver.Resolver()
+        root_resolver.nameservers = [TEST_DNS_ROOT]
+
+        answers = root_resolver.query(fqdn, 'A')
+        self.assertTrue(answers is not None)
+        for resp in answers.response.answer:
+            for item in resp.items:
+                self.assertTrue(ip_addr == item.to_text(), msg=item)
 
     def do_requests_get(self, url, **kwarg):
         try:

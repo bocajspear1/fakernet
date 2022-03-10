@@ -48,16 +48,18 @@ class TestWebdav(unittest.TestCase, ModuleTestBase):
 
     def do_test_basic_functionality(self, server_id):
         time.sleep(15)
+        self.check_dns(self.dns_1, self.server_1_ip)
         resp = requests.get("https://{}/".format(self.dns_1), verify=TEST_CA_PATH)
         self.assertTrue(resp.status_code == 200)
 
     def test_webdav(self):
         server_2_ip = '172.16.3.156'
-        dns_2 = 'webdav2.test'
+        dns_2 = 'webdav-second.test'
         error, server_id = self.mm['webdavalpine'].run("add_server", ip_addr=server_2_ip, fqdn=dns_2)
         self.assertTrue(error == None, msg=error)
 
-        time.sleep(50)
+        time.sleep(45)
+        self.check_dns(dns_2, server_2_ip)
         webdav_url = "https://{}/files/".format(dns_2)
 
         full_path = parentdir + "/work/webdavalpine/" + str(server_id) + "/webdav/admin.pass"

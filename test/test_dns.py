@@ -51,11 +51,31 @@ class TestDNS(unittest.TestCase):
             for item in resp.items:
                 self.assertTrue('172.16.3.20' == item.to_text(), msg=item)
 
+        error, _ = self.mm['dns'].run("add_host", fqdn="host2.test", ip_addr='172.16.3.21')
+        self.assertTrue(error == None, msg=error)
+
+        answers = root_resolver.query('host2.test', 'A')
+        self.assertTrue(answers is not None)
+        for resp in answers.response.answer:
+            for item in resp.items:
+                self.assertTrue('172.16.3.21' == item.to_text(), msg=item)
+
         error, _ = self.mm['dns'].run("remove_host", fqdn="host1.test", ip_addr='172.16.3.20')
         self.assertTrue(error == None, msg=error)
 
         try:
             answers = root_resolver.query('host1.test', 'A')
+            self.fail()
+        except dns.resolver.NXDOMAIN: 
+            pass
+        except dns.exception.Timeout:
+            pass
+
+        error, _ = self.mm['dns'].run("remove_host", fqdn="host2.test", ip_addr='172.16.3.21')
+        self.assertTrue(error == None, msg=error)
+
+        try:
+            answers = root_resolver.query('host2.test', 'A')
             self.fail()
         except dns.resolver.NXDOMAIN: 
             pass

@@ -294,6 +294,7 @@ class Zone(object):
         current date in common YYYYMMDDxx format.  The serial is
         guaranteed to be larger than the previous number.
         '''
+        new_serial = None
         if autoserial:
             
             old_set = self._zone.get_rdataset(self.domain, dns.rdatatype.SOA)
@@ -312,12 +313,14 @@ class Zone(object):
             filename = self.filename
         outtext = self._zone.to_text(relativize=False)
 
-        # os.remove(filename)
+        os.remove(filename)
         outfile = open(filename, "w+")
         outfile.write(outtext)
         outfile.flush()
         os.fsync(outfile.fileno())
         outfile.close()
+
+        return new_serial
     
 
 
