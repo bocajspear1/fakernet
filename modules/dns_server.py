@@ -392,28 +392,6 @@ class DNSServer(DockerBaseModule):
         forwarder_file.write(output)
         forwarder_file.close()
 
-    def _check_serial(self, dns_server_id, zone, zonefile, serial):
-        try:
-            container = self.mm.docker.containers.get(INSTANCE_TEMPLATE.format(dns_server_id))
-
-            ok = False 
-            while not ok:
-                code, output = container.exec_run("rndc zonestatus {}".format(zone))
-                if code != 0:
-                    return "'rndc zonestatus' failed: {}".format(output), None
-
-                if str(serial) not in output.decode():
-                    print("reload did't load new serial")
-                    err, _ = self._rndc_reload(dns_server_id, zonefile)
-                    if err is not None:
-                        return err, None
-                else:
-                    ok = True
-        except docker.errors.NotFound:
-            return "DNS server not found", None
-        
-        return None, True
-
     def _rndc_reload(self, dns_server_id, zonefile=None):
         try:
             time.sleep(3)
@@ -677,13 +655,7 @@ class DNSServer(DockerBaseModule):
             new_serial = zoneobj.save(autoserial=True)
 
             zonefile = "{}.{}".format(zone, direction)
-            err, _ = self._rndc_reload(dns_server_id, zonefile=zonefile) 
-            if err is not None:
-                return err, None
-
-            time.sleep(4)
-
-            return self._check_serial(dns_server_id, zone, zonefile, new_serial)
+            return self._rndc_reload(dns_server_id, zonefile=zonefile) 
         elif func == "remove_record":
             perror, _ = self.validate_params(self.__FUNCS__['remove_record'], kwargs)
             if perror is not None:
