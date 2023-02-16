@@ -72,6 +72,6 @@ typing-extensions==3.10.0.0
 urllib3==1.26.6
 wcwidth==0.2.5
 websocket-client==1.1.0
-Werkzeug==2.0.1
+Werkzeug==2.2.3
 ws4py==0.5.1
 zipp==3.5.0
